@@ -308,11 +308,11 @@ Verdict logic for a bot:
   prompt, auth, and posting failures also use exit 1 without a completed verdict.
 - **PASS/FAIL includes the bounded Claude review.** A model transport or parse
   error fails closed rather than silently producing an empty finding set.
-- **GitLab public-fallback CI is approximate.** The gate reads
-  `head_pipeline.status`; the public REST API metadata often lacks it, so the CLI
-  falls back to the MR `state` (e.g. `merged`, `opened`) as the "CI status".
-  That can render a spurious CI finding (e.g. `Pipeline status is merged`) on
-  public MRs fetched without `glab` auth. Authenticate `glab` for accurate CI.
+- **GitLab public-fallback CI fails closed when pipeline data is absent.** The
+  gate reads `head_pipeline.status`, then the legacy `pipeline.status`; public
+  REST metadata often lacks both, so the CLI normalizes it to `ci_status=none`.
+  That is a HIGH gate finding and exits 1 under `--blocking`. Authenticate
+  `glab` so the review can evaluate the real pipeline.
 - **Expired `glab` token silently falls back to public API.** `glab auth status`
   showing an expired token does **not** fail a public-MR fetch; it quietly uses
   the unauthenticated public REST API (and cannot fetch private MRs or post).

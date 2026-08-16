@@ -269,9 +269,13 @@ This ensures we:
 # Get CI/pipeline status using the provider-specific CI operation.
 EXCLUDED_SELF=0
 if [ "$REVIEW_PROVIDER" = "github" ]; then
-  if ! CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null); then
+  CI_ERROR_FILE=$(mktemp)
+  if ! CI_JSON=$(eval "$CI_COMMAND" 2>"$CI_ERROR_FILE"); then
+    CI_ERROR=$(tr '\n' ' ' <"$CI_ERROR_FILE")
+    echo "Warning: GitHub CI fetch failed: ${CI_ERROR:-unknown provider error}; failing closed" >&2
     CI_JSON='{"samorev_fetch_error":true}'
   fi
+  rm -f "$CI_ERROR_FILE"
   CI_SUMMARY_FALLBACK='{"original":{"samorev_fetch_error":true},"filtered":{"samorev_fetch_error":true},"status":"fetch-error","pipeline_id":"","pipeline_url":"","original_count":0,"filtered_count":0,"excluded_self":0}'
   if [ ! -f "$SAMOREV_ROOT/scripts/summarize-github-ci.sh" ] ||
      ! CI_SUMMARY=$(printf '%s' "$CI_JSON" | bash "$SAMOREV_ROOT/scripts/summarize-github-ci.sh"); then
@@ -335,9 +339,9 @@ fi
 | `fetch-error` | **BLOCKING** - CI could not be fetched; no verdict is trustworthy |
 | `unknown` | **BLOCKING** - CI payload was unusable |
 | `none` | **BLOCKING** - No independent CI was reported yet |
-| `running` | GitLab CI is still running; review is preliminary |
-| `pending` | Note that CI hasn't started yet |
-| `canceled` | Note cancellation, may need re-run |
+| `running` | **BLOCKING** - GitLab CI is still running |
+| `pending` | **BLOCKING** - CI is still pending |
+| `canceled` | **BLOCKING** - CI was canceled |
 
 **Include in report header:**
 
@@ -373,6 +377,22 @@ Where STATUS_EMOJI is:
 **HIGH** `CI/Pipeline` - Pipeline status is none
 > No independent CI check was reported for this pull request.
 > **Fix:** Run at least one independent CI check successfully before reviewing.
+```
+
+**If CI is pending, add to BLOCKING ISSUES:**
+
+```markdown
+**HIGH** `CI/Pipeline` - Pipeline status is pending
+> Independent CI has not completed yet.
+> **Fix:** Wait for CI to finish successfully, then rerun the review.
+```
+
+**If GitLab CI is running or canceled, add to BLOCKING ISSUES:**
+
+```markdown
+**CRITICAL** `CI/Pipeline` - Pipeline status is {PIPELINE_STATUS}
+> GitLab CI has not produced a successful completed pipeline.
+> **Fix:** Wait for a running pipeline or rerun a canceled pipeline, then review again.
 ```
 
 **If CI is unknown or fetch-error, add to BLOCKING ISSUES:**

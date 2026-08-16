@@ -119,7 +119,7 @@ async function review(args: ReviewArgs): Promise<number> {
         console.log(postedReport);
       } catch (error) {
         if (error instanceof PostingError) {
-          console.log(postedReport.replace(/^live_posting=posted$/m, "live_posting=blocked"));
+          console.log(markPostingBlocked(postedReport));
         }
         throw error;
       }
@@ -144,6 +144,13 @@ async function review(args: ReviewArgs): Promise<number> {
 
   console.error("Error: live posting from the CLI is not enabled yet. Use --no-comment, --fetch, or --smoke.");
   return 2;
+}
+
+export function markPostingBlocked(report: string): string {
+  const postedMarker = "\nlive_posting=posted\n```";
+  const markerIndex = report.lastIndexOf(postedMarker);
+  if (markerIndex < 0) return report;
+  return `${report.slice(0, markerIndex)}\nlive_posting=blocked\n\`\`\`${report.slice(markerIndex + postedMarker.length)}`;
 }
 
 export function parseGitHubSelfCheckEnv(

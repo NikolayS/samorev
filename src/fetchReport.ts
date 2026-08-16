@@ -685,11 +685,11 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
   };
 }
 
-function summarizeGitLabCi(ci: unknown): { status: string; summary: string } {
+export function summarizeGitLabCi(ci: unknown): { status: string; summary: string } {
   if (!isRecord(ci)) {
     return { status: "unknown", summary: "pipeline_status=unknown" };
   }
-  const pipeline = ci.head_pipeline;
+  const pipeline = isRecord(ci.head_pipeline) ? ci.head_pipeline : ci.pipeline;
   const status = isRecord(pipeline)
     ? String(pipeline.status ?? "unknown")
     : "pipeline_status" in ci

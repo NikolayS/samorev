@@ -51,7 +51,8 @@ elif [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" 
       .check_runs = [.check_runs[] | . as $run |
         if type == "object" then
           select((($trusted_ids | index($run.id | tostring)) != null and
-            $run.name == $name and ($run.app.id | tostring) == $app and
+            $run.name == $name and ($run.app | type) == "object" and
+            ($run.app.id | tostring) == $app and
             $run.status != "completed" and $run.conclusion == null) | not)
         else . end]
     else . end
@@ -67,6 +68,7 @@ filtered_count=$(jq -r 'if has("check_runs") and (.check_runs | type) == "array"
 excluded_self=$((original_count - filtered_count))
 
 if [[ $(jq -r '.samorev_fetch_error == true' <<<"$filtered_ci") == "true" ]]; then
+  excluded_self=0
   pipeline_status="fetch-error"
 elif [[ "$excluded_self" -gt 0 && "$filtered_count" -eq 0 ]]; then
   pipeline_status="self-only"

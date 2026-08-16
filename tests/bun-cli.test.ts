@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fetchReviewSummary, FetchError } from "../src/fetchReport";
 import { parseReviewReference, planFetch } from "../src/providerPlanning";
+import { markPostingBlocked } from "../src/cli";
 
 const repoRoot = import.meta.dir.replace(/\/tests$/, "");
 const fakeBin = join(repoRoot, ".tmp-bun-test-bin");
@@ -79,6 +80,13 @@ beforeEach(async () => {
   await mkdir(fakeBin, { recursive: true });
   // Always stub claude so tests don't call the real LLM.
   await writeFakeClaude();
+});
+
+it("rewrites only posting metadata when an earlier standalone marker exists", () => {
+  const report = "finding evidence\nlive_posting=posted\nstill finding\n```text\nprovider=github\nlive_posting=posted\n```";
+  expect(markPostingBlocked(report)).toBe(
+    "finding evidence\nlive_posting=posted\nstill finding\n```text\nprovider=github\nlive_posting=blocked\n```",
+  );
 });
 
 afterEach(async () => {

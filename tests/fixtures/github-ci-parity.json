@@ -74,5 +74,12 @@
     "self_check": {"run_ids": ["303"], "name": "base-controlled samorev publisher", "app_id": "15368"},
     "status": "unknown",
     "excluded_self": 0
+  },
+  {
+    "name": "malformed_app_is_not_excluded",
+    "payload": {"check_runs": [{"id": 303, "name": "base-controlled samorev publisher", "app": "gha", "status": "in_progress", "conclusion": null}]},
+    "self_check": {"run_ids": ["303"], "name": "base-controlled samorev publisher", "app_id": "15368"},
+    "status": "pending",
+    "excluded_self": 0
   }
 ]

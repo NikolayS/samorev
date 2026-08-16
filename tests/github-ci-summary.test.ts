@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { formatCiBadge, reviewGateFindings, summarizeGitHubCi } from "../src/fetchReport";
+import { formatCiBadge, reviewGateFindings, summarizeGitHubCi, summarizeGitLabCi } from "../src/fetchReport";
 import { parseGitHubSelfCheckEnv } from "../src/cli";
 
 const publisher = { id: 303, name: "base-controlled samorev publisher" };
@@ -136,6 +136,19 @@ describe("GitHub CI self-check exclusion", () => {
       status: "failure",
       summary: "total=2 success=1 failure=1 pending=0 other=0",
       excludedSelf: 0,
+    });
+  });
+});
+
+describe("GitLab CI normalization", () => {
+  test("uses the legacy pipeline object when head_pipeline is absent", () => {
+    expect(summarizeGitLabCi({ pipeline: { status: "success" } })).toEqual({
+      status: "success",
+      summary: "pipeline_status=success",
+    });
+    expect(summarizeGitLabCi({ state: "merged" })).toEqual({
+      status: "none",
+      summary: "pipeline_status=none",
     });
   });
 });
