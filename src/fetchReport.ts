@@ -644,8 +644,9 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
     const app = isRecord(run.app) ? run.app : {};
     const conclusion = run.conclusion;
     const status = run.status;
-    const trustedPublisher = trustedIds.has(String(run.id ?? "")) && trustedName && trustedAppId
-      && String(run.name ?? "") === trustedName && String(app.id ?? "") === trustedAppId;
+    const publisherIdentity = Boolean(trustedName && trustedAppId
+      && String(run.name ?? "") === trustedName && String(app.id ?? "") === trustedAppId);
+    const trustedPublisher = trustedIds.has(String(run.id ?? "")) && publisherIdentity;
     const excludablePublisher = conclusion == null || ["success", "skipped", "neutral"].includes(String(conclusion));
     if (trustedPublisher && excludablePublisher) {
       excludedSelf += 1;
@@ -653,7 +654,7 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
     }
     if (["success", "skipped", "neutral"].includes(String(conclusion))) {
       counts.success += 1;
-      if (conclusion === "success") genuineSuccess += 1;
+      if (conclusion === "success" && !publisherIdentity) genuineSuccess += 1;
     } else if (["failure", "cancelled", "timed_out", "action_required", "stale", "startup_failure"].includes(String(conclusion))) {
       counts.failure += 1;
     } else if (status !== "completed" || conclusion == null) {

@@ -12,7 +12,10 @@ if [[ ! -f "$source_command" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$repo_root/lib/provider_planning.py" || ! -f "$repo_root/scripts/summarize-github-ci.sh" ]]; then
+if [[ ! -f "$repo_root/lib/provider_planning.py" ||
+      ! -f "$repo_root/lib/review_memory.py" ||
+      ! -f "$repo_root/lib/compliance.py" ||
+      ! -f "$repo_root/scripts/summarize-github-ci.sh" ]]; then
   echo "Error: samorev helper set is incomplete at $repo_root" >&2
   exit 1
 fi

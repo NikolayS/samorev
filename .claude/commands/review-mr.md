@@ -95,6 +95,7 @@ REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
 PLAN_SCRIPT=""
 for candidate in \
   "${REV_ROOT:-}/lib/provider_planning.py" \
+  "${SAMOREV_INSTALL_ROOT:-}/lib/provider_planning.py" \
   "$HOME/.claude/samorev/lib/provider_planning.py"; do
   if [ -f "$candidate" ]; then
     PLAN_SCRIPT="$candidate"
@@ -786,8 +787,11 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
     "</recent_discussion>"
   ' || true)
 else
-  PRIOR_CONTEXT=$(python3 "$SAMOREV_ROOT/lib/review_memory.py" \
-    "$PROJECT_URL_ENCODED" "$MR_NUMBER" 2>/dev/null || true)
+  if ! PRIOR_CONTEXT=$(python3 "$SAMOREV_ROOT/lib/review_memory.py" \
+    "$PROJECT_URL_ENCODED" "$MR_NUMBER"); then
+    echo "Warning: trusted review-memory helper failed; continuing without prior context" >&2
+    PRIOR_CONTEXT=""
+  fi
 fi
 ```
 
@@ -825,8 +829,11 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
     "</recent_discussion>"
   ' || true)
 else
-  PRIOR_CONTEXT=$(python3 "$SAMOREV_ROOT/lib/review_memory.py" \
-    "$PROJECT_URL_ENCODED" "$MR_NUMBER" 2>/dev/null || true)
+  if ! PRIOR_CONTEXT=$(python3 "$SAMOREV_ROOT/lib/review_memory.py" \
+    "$PROJECT_URL_ENCODED" "$MR_NUMBER"); then
+    echo "Warning: trusted review-memory helper failed; continuing without prior context" >&2
+    PRIOR_CONTEXT=""
+  fi
 fi
 RULES_CONTENT=""
 RULES_LOADED=false

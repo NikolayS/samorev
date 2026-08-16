@@ -84,6 +84,28 @@ def test_malformed_payloads_fail_closed():
         ["bash", str(SCRIPT)], input="", env=clean_env(), capture_output=True, text=True, check=True
     )
     assert json.loads(empty.stdout)["status"] == "fetch-error"
+    multi_document = subprocess.run(
+        ["bash", str(SCRIPT)],
+        input='{"check_runs":[{"conclusion":"success"}]}\n{"check_runs":[{"conclusion":"failure"}]}\n',
+        env=clean_env(), capture_output=True, text=True, check=True,
+    )
+    assert json.loads(multi_document.stdout)["status"] == "failure"
+
+
+def test_pipeline_link_prefers_failed_actions_run_and_extracts_numeric_id():
+    summary, _ = summarize({"check_runs": [
+        {"conclusion": "success", "html_url": "https://github.com/o/r/actions/runs/10/job/1"},
+        {"conclusion": "failure", "html_url": "https://github.com/o/r/actions/runs/20/job/2"},
+    ]})
+    assert summary["pipeline_id"] == "20"
+    assert summary["pipeline_url"].endswith("/actions/runs/20/job/2")
+
+    non_actions, _ = summarize({"check_runs": [{"conclusion": "failure", "html_url": "https://ci.example/run/7"}]})
+    assert non_actions["pipeline_id"] == ""
+
+    hostile, _ = summarize({"check_runs": [{"conclusion": "failure", "html_url": "https://evil/actions/runs/1;rm-rf/"}]})
+    assert hostile["pipeline_id"] == "1"
+    assert hostile["pipeline_id"].isdigit()
 
 
 def test_empty_and_trusted_publisher_only_are_blocking_states():

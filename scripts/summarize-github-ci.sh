@@ -2,7 +2,10 @@
 set -euo pipefail
 
 raw_ci=$(cat)
-if ! original_ci=$(jq -c '
+if [[ -z "${raw_ci//[[:space:]]/}" ]]; then
+  original_ci='{"samorev_fetch_error":true}'
+elif ! original_ci=$(jq -s -c '
+  if length == 1 then .[0] else . end |
   if type == "array" then
     if all(.[]; type == "object" and has("check_runs") and (.check_runs | type) == "array")
     then {check_runs: [.[].check_runs[]]}
@@ -40,9 +43,7 @@ for value in \
   fi
 done
 
-if [[ "$configured" -gt 0 && "$configured" -lt 3 ]]; then
-  echo "Warning: incomplete or invalid GitHub self-check exclusion configuration; run IDs, exact name, and numeric app ID are all required; excluding nothing" >&2
-elif [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" =~ ^[0-9]+$ ]]; then
+if [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" =~ ^[0-9]+$ ]]; then
   if ! filtered_ci=$(jq -c \
     --argjson trusted_ids "$trusted_ids" \
     --arg name "$publisher_name" \
@@ -74,7 +75,7 @@ if [[ $(jq -r '.samorev_fetch_error == true' <<<"$filtered_ci") == "true" ]]; th
 elif [[ "$excluded_self" -gt 0 && "$filtered_count" -eq 0 ]]; then
   pipeline_status="self-only"
 else
-  pipeline_status=$(jq -r '
+  pipeline_status=$(jq -r --arg name "$publisher_name" --arg app "$publisher_app_id" '
     if .samorev_fetch_error == true then "fetch-error"
     elif (has("check_runs") and (.check_runs | type) == "array") | not then "unknown"
     else .check_runs as $runs |
@@ -82,7 +83,8 @@ else
       elif any($runs[]; type == "object" and ((.conclusion // "") as $conclusion | ["failure", "timed_out", "cancelled", "action_required", "stale", "startup_failure"] | index($conclusion))) then "failure"
       elif any($runs[]; type == "object" and ((.conclusion // "") as $conclusion | (["success", "skipped", "neutral"] | index($conclusion)) == null) and ((.status // "") != "completed" or .conclusion == null)) then "pending"
       elif any($runs[]; type != "object") then "unknown"
-      elif all($runs[]; (.conclusion // "") as $conclusion | ["success", "skipped", "neutral"] | index($conclusion)) and any($runs[]; .conclusion == "success") then "success"
+      elif all($runs[]; (.conclusion // "") as $conclusion | ["success", "skipped", "neutral"] | index($conclusion)) and any($runs[];
+        .conclusion == "success" and (((.name // "") == $name and (.app | type) == "object" and ((.app.id // "") | tostring) == $app) | not)) then "success"
       elif all($runs[]; (.conclusion // "") as $conclusion | ["success", "skipped", "neutral"] | index($conclusion)) then "none"
       else "unknown" end
     end

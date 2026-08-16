@@ -143,8 +143,10 @@ bash scripts/install-claude-command.sh
 
 The installer treats the complete checkout as the trusted runtime root. When
 run elsewhere it links that checkout at `~/.claude/samorev`; when the checkout
-already lives there, it uses it directly. Set `SAMOREV_INSTALL_ROOT` to choose a
-different trusted path. The installer refuses to replace an occupied path or an
+already lives there, it uses it directly. Set and persist
+`SAMOREV_INSTALL_ROOT` for both installation and later reviewer sessions to
+choose a different trusted path (or set `REV_ROOT` to the same checkout). The
+installer refuses to replace an occupied path or an
 existing user slash command.
 
 To update:

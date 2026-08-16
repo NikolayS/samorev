@@ -278,8 +278,8 @@ env:
   PR_URL: ${{ github.event.pull_request.html_url }}
 run: |
   trusted_run_ids="$(
-    gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" |
-      jq -sr --arg run_id "$GITHUB_RUN_ID" --arg publisher "base-controlled samorev publisher" \
+    gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" |
+      jq -r --arg run_id "$GITHUB_RUN_ID" --arg publisher "base-controlled samorev publisher" \
         '[.[].check_runs[] | select(.name == $publisher and ((.html_url // "") | contains("/actions/runs/" + $run_id + "/"))) | .id] | unique | join(",")'
   )"
   export SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="$trusted_run_ids"

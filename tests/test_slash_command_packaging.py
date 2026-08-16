@@ -61,6 +61,8 @@ def test_installer_accepts_checkout_at_default_install_root(tmp_path: Path):
         "scripts/install-claude-command.sh",
         "scripts/summarize-github-ci.sh",
         "lib/provider_planning.py",
+        "lib/review_memory.py",
+        "lib/compliance.py",
         ".claude/commands/review-mr.md",
     ]:
         destination = checkout / relative
@@ -132,6 +134,28 @@ def test_installed_command_finds_helper_from_arbitrary_repo(tmp_path: Path):
     assert result.returncode == 0, result.stderr
     assert "provider=github" in result.stdout
     assert "project=example-org/example-repo" in result.stdout
+
+
+def test_nondefault_install_root_is_used_by_step_one(tmp_path: Path):
+    home = tmp_path / "home"
+    install_root = home / "trusted" / "samorev"
+    target_repo = tmp_path / "target-repo"
+    target_repo.mkdir()
+    env = {**os.environ, "HOME": str(home), "SAMOREV_INSTALL_ROOT": str(install_root)}
+    installed = subprocess.run(
+        ["bash", "scripts/install-claude-command.sh"], cwd=ROOT, env=env, capture_output=True, text=True,
+    )
+    assert installed.returncode == 0, installed.stderr
+
+    command = read(".claude/commands/review-mr.md")
+    step_1_section = command.split("### Step 1: Parse review reference", 1)[1]
+    step_1 = step_1_section.split("```bash\n", 1)[1].split("\n```\n\n### Step 2", 1)[0]
+    result = subprocess.run(
+        ["bash", "-c", "ARGUMENTS=https://github.com/example-org/example-repo/pull/17\n" + step_1 + "\nprintf '%s\n' \"$SAMOREV_ROOT\"\n"],
+        cwd=target_repo, env=env, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert str(install_root) in result.stdout
 
 
 def test_installer_refuses_to_overwrite_existing_user_command(tmp_path: Path):
