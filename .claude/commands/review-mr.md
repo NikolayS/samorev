@@ -366,7 +366,15 @@ Where STATUS_EMOJI is:
 > **Fix:** Run at least one independent CI check successfully before reviewing.
 ```
 
-**If CI is none, unknown, or fetch-error, add to BLOCKING ISSUES:**
+**If CI is none, add to BLOCKING ISSUES:**
+
+```markdown
+**HIGH** `CI/Pipeline` - Pipeline status is none
+> No independent CI check was reported for this pull request.
+> **Fix:** Run at least one independent CI check successfully before reviewing.
+```
+
+**If CI is unknown or fetch-error, add to BLOCKING ISSUES:**
 
 ```markdown
 **CRITICAL** `CI/Pipeline` - Pipeline status is {PIPELINE_STATUS}

@@ -74,9 +74,9 @@ else
     elif (has("check_runs") and (.check_runs | type) == "array") | not then "unknown"
     else .check_runs as $runs |
       if ($runs | length) == 0 then "none"
+      elif any($runs[]; type == "object" and ((.conclusion // "") as $conclusion | ["failure", "timed_out", "cancelled", "action_required", "stale"] | index($conclusion))) then "failure"
+      elif any($runs[]; type == "object" and ((.conclusion // "") as $conclusion | (["success", "skipped", "neutral"] | index($conclusion)) == null) and ((.status // "") != "completed" or .conclusion == null)) then "pending"
       elif any($runs[]; type != "object") then "unknown"
-      elif any($runs[]; (.conclusion // "") as $conclusion | ["failure", "timed_out", "cancelled", "action_required", "stale"] | index($conclusion)) then "failure"
-      elif any($runs[]; (.status // "") != "completed" or .conclusion == null) then "pending"
       elif all($runs[]; (.conclusion // "") as $conclusion | ["success", "skipped", "neutral"] | index($conclusion)) then "success"
       else "unknown" end
     end
@@ -84,14 +84,16 @@ else
 fi
 
 pipeline_context="$filtered_ci"
-pipeline_context=$(jq -c 'if has("check_runs") and (.check_runs | type) == "array" then . else {check_runs: []} end' <<<"$pipeline_context")
-pipeline_candidate=$(jq -c '
+pipeline_context=$(jq -c 'if has("check_runs") and (.check_runs | type) == "array" then .check_runs = [.check_runs[] | select(type == "object")] else {check_runs: []} end' <<<"$pipeline_context")
+if ! pipeline_candidate=$(jq -c '
   def failed: (.conclusion // "") as $conclusion | ["failure", "timed_out", "cancelled", "action_required", "stale"] | index($conclusion);
   def actions: (.html_url // "") | test("/actions/runs/[0-9]+");
   (([.check_runs[] | select(failed and actions)] +
     [.check_runs[] | select(actions)] +
     [.check_runs[]]) | .[0]) // {}
-' <<<"$pipeline_context")
+' <<<"$pipeline_context" 2>/dev/null); then
+  pipeline_candidate='{}'
+fi
 pipeline_id=$(jq -r '.html_url // "" | capture("/actions/runs/(?<id>[0-9]+)")? | .id // empty' <<<"$pipeline_candidate")
 pipeline_url=$(jq -r '.html_url // empty' <<<"$pipeline_candidate")
 

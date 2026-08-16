@@ -60,7 +60,9 @@ DIFF_CONTENT=$(eval "$DIFF_COMMAND")
 COMMENTS_JSON=$(eval "$COMMENTS_COMMAND")
 COMMITS_JSON=$(eval "$COMMITS_COMMAND")
 CI_JSON=$(eval "$CI_COMMAND")
-PIPELINE_STATUS=$(printf '%s' "$CI_JSON" | bash "$repo_root/scripts/summarize-github-ci.sh" | jq -r '.status')
+if ! PIPELINE_STATUS=$(printf '%s' "$CI_JSON" | bash "$repo_root/scripts/summarize-github-ci.sh" | jq -er '.status'); then
+  PIPELINE_STATUS="fetch-error"
+fi
 
 echo "provider=$REVIEW_PROVIDER"
 echo "review=$REVIEW_KIND $PROJECT#$REVIEW_NUMBER"

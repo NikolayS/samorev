@@ -90,7 +90,8 @@ Gate findings (from `reviewGateFindings()`):
 |---------|------|----------|
 | `draft == true` | Metadata | HIGH |
 | CI status `pending` or `none` | CI/Pipeline | HIGH |
-| CI status other than `success`, `pending`, or `none` | CI/Pipeline | CRITICAL |
+| CI status `self-only` | CI/Pipeline | HIGH |
+| CI status other than `success`, `pending`, `none`, or `self-only` | CI/Pipeline | CRITICAL |
 
 For GitHub check conclusions, `success`, `skipped`, and `neutral` are
 non-blocking; `failure`, `cancelled`, `timed_out`, `action_required`, and
