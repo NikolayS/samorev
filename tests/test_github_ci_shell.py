@@ -8,13 +8,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 SCRIPT = ROOT / "scripts" / "summarize-github-ci.sh"
+SELF_CHECK_VARS = {
+    "SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS",
+    "SAMOREV_IGNORED_GITHUB_CHECK_NAME",
+    "SAMOREV_IGNORED_GITHUB_CHECK_APP_ID",
+}
+
+
+def clean_env(**overrides: str) -> dict[str, str]:
+    base = {key: value for key, value in os.environ.items() if key not in SELF_CHECK_VARS}
+    return {**base, **overrides}
 
 
 def summarize(payload: object, **env: str) -> tuple[dict, str]:
     result = subprocess.run(
         ["bash", str(SCRIPT)],
         input=json.dumps(payload),
-        env={**os.environ, **env},
+        env=clean_env(**env),
         capture_output=True,
         text=True,
         check=True,
@@ -36,7 +46,7 @@ def test_malformed_payloads_fail_closed():
     assert summarize({"check_runs": "oops"})[0]["status"] == "unknown"
     assert summarize([{"check_runs": []}, {"message": "partial"}])[0]["status"] == "unknown"
     result = subprocess.run(
-        ["bash", str(SCRIPT)], input="not-json", capture_output=True, text=True, check=True
+        ["bash", str(SCRIPT)], input="not-json", env=clean_env(), capture_output=True, text=True, check=True
     )
     assert json.loads(result.stdout)["status"] == "fetch-error"
 
@@ -85,3 +95,21 @@ def test_partial_configuration_warns_and_excludes_nothing():
     )
     assert summary["status"] == "pending"
     assert "incomplete GitHub self-check" in stderr
+
+
+def test_configuration_normalization_matches_cli_contract():
+    publisher = {
+        "id": 303,
+        "name": "base-controlled samorev publisher",
+        "app": {"id": 15368},
+        "status": "in_progress",
+        "conclusion": None,
+    }
+    summary, stderr = summarize(
+        {"check_runs": [publisher]},
+        SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="abc, 303 ",
+        SAMOREV_IGNORED_GITHUB_CHECK_NAME=f" {publisher['name']} ",
+        SAMOREV_IGNORED_GITHUB_CHECK_APP_ID="15368 ",
+    )
+    assert summary["status"] == "self-only"
+    assert "Ignoring non-numeric" in stderr

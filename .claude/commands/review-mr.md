@@ -271,8 +271,16 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
   if ! CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null); then
     CI_JSON='{"samorev_fetch_error":true}'
   fi
-  CI_SUMMARY=$(printf '%s' "$CI_JSON" | bash "$SAMOREV_ROOT/scripts/summarize-github-ci.sh")
-  CI_JSON=$(jq -c '.filtered' <<<"$CI_SUMMARY")
+  CI_SUMMARY_FALLBACK='{"original":{"samorev_fetch_error":true},"filtered":{"samorev_fetch_error":true},"status":"fetch-error","pipeline_id":"","pipeline_url":"","original_count":0,"filtered_count":0,"excluded_self":0}'
+  if [ ! -f "$SAMOREV_ROOT/scripts/summarize-github-ci.sh" ] ||
+     ! CI_SUMMARY=$(printf '%s' "$CI_JSON" | bash "$SAMOREV_ROOT/scripts/summarize-github-ci.sh"); then
+    echo "Warning: GitHub CI summarizer unavailable; failing closed" >&2
+    CI_SUMMARY="$CI_SUMMARY_FALLBACK"
+  fi
+  if ! jq -e 'type == "object" and (.status | type) == "string" and (.status | length) > 0 and (.pipeline_id | type) == "string" and (.pipeline_url | type) == "string"' <<<"$CI_SUMMARY" >/dev/null; then
+    echo "Warning: invalid GitHub CI summary; failing closed" >&2
+    CI_SUMMARY="$CI_SUMMARY_FALLBACK"
+  fi
   PIPELINE_STATUS=$(jq -r '.status' <<<"$CI_SUMMARY")
   PIPELINE_ID=$(jq -r '.pipeline_id' <<<"$CI_SUMMARY")
   PIPELINE_URL=$(jq -r '.pipeline_url' <<<"$CI_SUMMARY")
@@ -319,12 +327,13 @@ fi
 | Status | Action |
 |--------|--------|
 | `success` | Include green checkmark in report, show coverage % |
-| `failed` | **BLOCKING** - Include failed job names and error summary |
+| `failure` | **BLOCKING** - GitHub CI failed; include failed job names and error summary |
+| `failed` | **BLOCKING** - GitLab CI failed |
 | `self-only` | **BLOCKING** - No independent CI remained after excluding trusted pending publisher checks |
 | `fetch-error` | **BLOCKING** - CI could not be fetched; no verdict is trustworthy |
 | `unknown` | **BLOCKING** - CI payload was unusable |
 | `none` | **BLOCKING** - No independent CI was reported yet |
-| `running` | Note that CI is still running, review may be preliminary |
+| `running` | GitLab CI is still running; review is preliminary |
 | `pending` | Note that CI hasn't started yet |
 | `canceled` | Note cancellation, may need re-run |
 
@@ -337,7 +346,7 @@ fi
 
 Where STATUS_EMOJI is:
 - ✅ for success
-- ❌ for failed
+- ❌ for failure/failed
 - ❌ for self-only
 - ❌ for fetch-error/unknown
 - ❌ for none

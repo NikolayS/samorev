@@ -14,11 +14,24 @@ if ! original_ci=$(jq -c '
 fi
 
 filtered_ci="$original_ci"
+raw_ids=$(jq -cn --arg ids "${SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS:-}" '$ids | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')
+trusted_ids=$(jq -c '[.[] | select(test("^[0-9]+$"))]' <<<"$raw_ids")
+publisher_name=$(jq -nr --arg value "${SAMOREV_IGNORED_GITHUB_CHECK_NAME:-}" '$value | gsub("^\\s+|\\s+$"; "")')
+publisher_app_id=$(jq -nr --arg value "${SAMOREV_IGNORED_GITHUB_CHECK_APP_ID:-}" '$value | gsub("^\\s+|\\s+$"; "")')
+raw_id_count=$(jq 'length' <<<"$raw_ids")
+trusted_id_count=$(jq 'length' <<<"$trusted_ids")
+if [[ "$trusted_id_count" -ne "$raw_id_count" ]]; then
+  echo "Ignoring non-numeric GitHub self-check run IDs" >&2
+fi
 configured=0
+ids_configured=""
+if [[ "$raw_id_count" -gt 0 ]]; then
+  ids_configured="configured"
+fi
 for value in \
-  "${SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS:-}" \
-  "${SAMOREV_IGNORED_GITHUB_CHECK_NAME:-}" \
-  "${SAMOREV_IGNORED_GITHUB_CHECK_APP_ID:-}"; do
+  "$ids_configured" \
+  "$publisher_name" \
+  "$publisher_app_id"; do
   if [[ -n "$value" ]]; then
     configured=$((configured + 1))
   fi
@@ -26,13 +39,12 @@ done
 
 if [[ "$configured" -gt 0 && "$configured" -lt 3 ]]; then
   echo "Warning: incomplete GitHub self-check exclusion configuration; excluding nothing" >&2
-elif [[ "$configured" -eq 3 ]]; then
+elif [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" =~ ^[0-9]+$ ]]; then
   if ! filtered_ci=$(jq -c \
-    --arg ids "$SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS" \
-    --arg name "$SAMOREV_IGNORED_GITHUB_CHECK_NAME" \
-    --arg app "$SAMOREV_IGNORED_GITHUB_CHECK_APP_ID" '
+    --argjson trusted_ids "$trusted_ids" \
+    --arg name "$publisher_name" \
+    --arg app "$publisher_app_id" '
     if has("check_runs") and (.check_runs | type) == "array" then
-      ($ids | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(test("^[0-9]+$")))) as $trusted_ids |
       .check_runs = [.check_runs[] | . as $run |
         select((($trusted_ids | index($run.id | tostring)) != null and
           $run.name == $name and ($run.app.id | tostring) == $app and
@@ -41,6 +53,8 @@ elif [[ "$configured" -eq 3 ]]; then
   ' <<<"$original_ci" 2>/dev/null); then
     filtered_ci='{"samorev_fetch_error":true}'
   fi
+elif [[ "$configured" -gt 0 ]]; then
+  echo "Invalid GitHub self-check configuration; run IDs, exact name, and numeric app ID are all required" >&2
 fi
 
 original_count=$(jq -r 'if has("check_runs") and (.check_runs | type) == "array" then (.check_runs | length) else 0 end' <<<"$original_ci")
@@ -66,9 +80,6 @@ else
 fi
 
 pipeline_context="$filtered_ci"
-if [[ "$filtered_count" -eq 0 ]]; then
-  pipeline_context="$original_ci"
-fi
 pipeline_context=$(jq -c 'if has("check_runs") and (.check_runs | type) == "array" then . else {check_runs: []} end' <<<"$pipeline_context")
 pipeline_id=$(jq -r '
   [(.check_runs // [])[] | . as $run | select(["failure", "timed_out", "cancelled", "action_required", "stale"] | index($run.conclusion // ""))] +

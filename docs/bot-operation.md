@@ -107,6 +107,9 @@ stores** — it does not read provider tokens from environment variables itself.
 | GitLab auth | `glab auth login` (or a `glab`-configured token) | Authenticated GitLab MR fetch; posting comments |
 | GitLab token scopes | `api` (read MR + post notes) — or `read_api` if the bot only fetches with `--no-comment` | GitLab reviews |
 | GitLab public MRs | nothing — public REST API fallback runs when `glab` is missing or its token is bad | Read-only public GitLab MR fetch |
+| `SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS` | Fresh comma-separated Checks API IDs | Trusted GitHub verdict publishers only; CLI and `/review-mr` |
+| `SAMOREV_IGNORED_GITHUB_CHECK_NAME` | Exact publisher check name | Trusted GitHub verdict publishers only; CLI and `/review-mr` |
+| `SAMOREV_IGNORED_GITHUB_CHECK_APP_ID` | Numeric publisher app ID | Trusted GitHub verdict publishers only; CLI and `/review-mr` |
 
 **Verify auth before a posting run** (the CLI runs `gh auth status` / `glab auth
 status` internally before posting and exits non-zero with `live_posting=blocked`
@@ -126,6 +129,9 @@ Only relevant if the bot drives `/review-mr` inside Claude Code:
 | `GITLAB_TOKEN` | `lib/review_memory.py` | Fetch prior-review context for GitLab MRs (sent as `PRIVATE-TOKEN`). |
 | `GITLAB_HOST` | `lib/review_memory.py` | Override GitLab host (default `gitlab.com`). |
 | `REPO_ROOT` / `REV_ROOT` | `.claude/commands/review-mr.md` | Path hints to locate `lib/` helpers. |
+| `SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS` | `scripts/summarize-github-ci.sh` | Trusted current publisher check IDs; shared with Surface A. |
+| `SAMOREV_IGNORED_GITHUB_CHECK_NAME` | `scripts/summarize-github-ci.sh` | Exact trusted publisher name; shared with Surface A. |
+| `SAMOREV_IGNORED_GITHUB_CHECK_APP_ID` | `scripts/summarize-github-ci.sh` | Numeric trusted publisher app ID; shared with Surface A. |
 
 ### NOT needed to operate samorev
 

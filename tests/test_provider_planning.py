@@ -133,7 +133,10 @@ def test_review_command_fails_closed_and_preserves_self_check_context():
     command_text = (Path(__file__).parent.parent / ".claude/commands/review-mr.md").read_text()
 
     assert 'bash "$SAMOREV_ROOT/scripts/summarize-github-ci.sh"' in command_text
+    assert "CI_SUMMARY_FALLBACK=" in command_text
+    assert "GitHub CI summarizer unavailable; failing closed" in command_text
     assert "PIPELINE_STATUS=$(jq -r '.status'" in command_text
+    assert "| `failure` | **BLOCKING** - GitHub CI failed" in command_text
     assert "Pipeline status is self-only" in command_text
     assert "Run at least one independent CI check successfully" in command_text
 
