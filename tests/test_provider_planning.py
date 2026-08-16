@@ -128,6 +128,17 @@ def test_review_command_has_provider_specific_mandatory_sections():
     assert "gh pr comment" in command_text
 
 
+def test_review_command_fails_closed_and_preserves_self_check_context():
+    command_text = (Path(__file__).parent.parent / ".claude/commands/review-mr.md").read_text()
+
+    assert "ORIGINAL_CI_JSON=\"$CI_JSON\"" in command_text
+    assert "incomplete GitHub self-check exclusion configuration" in command_text
+    assert 'split(\",\") | map(gsub(' in command_text
+    assert 'PIPELINE_ID=$(echo "$ORIGINAL_CI_JSON"' in command_text
+    assert "Pipeline status is self-only" in command_text
+    assert "Run at least one independent CI check successfully" in command_text
+
+
 def test_shell_exports_include_end_to_end_provider_operations():
     reference = parse_review_reference("https://github.com/example-org/example-repo/pull/17")
     exports = to_shell_exports(reference, plan_fetch(reference))

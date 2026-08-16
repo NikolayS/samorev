@@ -267,17 +267,23 @@ This ensures we:
 ```bash
 # Get CI/pipeline status using the provider-specific CI operation.
 if [ "$REVIEW_PROVIDER" = "github" ]; then
-  CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null || echo '{"check_runs":[]}')
+  CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null || echo '{"samorev_fetch_error":true}')
+  ORIGINAL_CI_JSON="$CI_JSON"
   ORIGINAL_RUN_COUNT=$(echo "$CI_JSON" | jq '(.check_runs // []) | length')
-  if [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS:-}" ] &&
-     [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_NAME:-}" ] &&
-     [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_APP_ID:-}" ]; then
+  SELF_CHECK_CONFIGURED=0
+  [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS:-}" ] && SELF_CHECK_CONFIGURED=$((SELF_CHECK_CONFIGURED + 1))
+  [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_NAME:-}" ] && SELF_CHECK_CONFIGURED=$((SELF_CHECK_CONFIGURED + 1))
+  [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_APP_ID:-}" ] && SELF_CHECK_CONFIGURED=$((SELF_CHECK_CONFIGURED + 1))
+  if [ "$SELF_CHECK_CONFIGURED" -gt 0 ] && [ "$SELF_CHECK_CONFIGURED" -lt 3 ]; then
+    echo "Warning: incomplete GitHub self-check exclusion configuration; excluding nothing" >&2
+  elif [ "$SELF_CHECK_CONFIGURED" -eq 3 ]; then
     CI_JSON=$(echo "$CI_JSON" | jq \
-      --arg ids ",${SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS}," \
+      --arg ids "$SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS" \
       --arg name "$SAMOREV_IGNORED_GITHUB_CHECK_NAME" \
       --arg app "$SAMOREV_IGNORED_GITHUB_CHECK_APP_ID" '
+      ($ids | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(test("^[0-9]+$")))) as $trusted_ids |
       .check_runs = [(.check_runs // [])[] | . as $run |
-        select((($ids | contains("," + ($run.id | tostring) + ",")) and
+        select((($trusted_ids | index($run.id | tostring)) != null and
           $run.name == $name and ($run.app.id | tostring) == $app and
           $run.status != "completed" and $run.conclusion == null) | not)]')
   fi
@@ -286,15 +292,16 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
     PIPELINE_STATUS="self-only"
   else
     PIPELINE_STATUS=$(echo "$CI_JSON" | jq -r '
-      (.check_runs // []) as $runs |
-      if ($runs | length) == 0 then "unknown"
+      if (has("check_runs") and (.check_runs | type) == "array") | not then "unknown"
+      else .check_runs as $runs |
+      if ($runs | length) == 0 then "none"
       elif any($runs[]; (.conclusion // "") == "failure" or (.conclusion // "") == "timed_out" or (.conclusion // "") == "cancelled") then "failed"
       elif all($runs[]; (.conclusion // "") == "success" or (.conclusion // "") == "skipped" or (.conclusion // "") == "neutral") then "success"
       elif any($runs[]; (.status // "") == "queued") then "pending"
-      else "running" end')
+      else "running" end end')
   fi
-  PIPELINE_ID=$(echo "$CI_JSON" | jq -r '[(.check_runs // [])[] | .html_url // "" | capture("/actions/runs/(?<id>[0-9]+)")? | .id][0] // empty')
-  PIPELINE_URL=$(echo "$CI_JSON" | jq -r '[(.check_runs // [])[] | .html_url // empty][0] // empty')
+  PIPELINE_ID=$(echo "$ORIGINAL_CI_JSON" | jq -r '[(.check_runs // [])[] | .html_url // "" | capture("/actions/runs/(?<id>[0-9]+)")? | .id][0] // empty')
+  PIPELINE_URL=$(echo "$ORIGINAL_CI_JSON" | jq -r '[(.check_runs // [])[] | .html_url // empty][0] // empty')
   COVERAGE="N/A"
 else
   MR_JSON=$(eval "$CI_COMMAND")
@@ -355,8 +362,17 @@ fi
 Where STATUS_EMOJI is:
 - ✅ for success
 - ❌ for failed
+- ❌ for self-only
 - ⏳ for running/pending
 - ⚠️ for canceled/unknown
+
+**If CI is self-only, add to BLOCKING ISSUES:**
+
+```markdown
+**HIGH** `CI/Pipeline` - Pipeline status is self-only
+> Only explicitly trusted pending samorev publisher checks remained; no independent CI was evaluated.
+> **Fix:** Run at least one independent CI check successfully before reviewing.
+```
 
 **If CI failed, add to BLOCKING ISSUES:**
 

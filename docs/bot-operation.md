@@ -249,14 +249,16 @@ counts evaluated independent checks. A self-only set reports
 `ci_status=self-only` and fails closed. This
 exclusion does not apply to GitLab's aggregate pipeline status.
 
-Resolve trusted IDs from the base-controlled `samorev-gate` status target, not
-by accepting a PR-supplied job name. For example:
+Resolve trusted IDs from the current base-controlled publisher run, not by
+accepting a PR-supplied job name or status target. In a GitHub Actions step:
 
 ```bash
-gate_run_id="$(gh api "repos/$REPOSITORY/commits/$HEAD_SHA/statuses" --paginate \
-  --jq '[.[] | select(.context == "samorev-gate" and .state == "pending")][0].target_url | capture("/actions/runs/(?<id>[0-9]+)").id')"
-export SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="$(gh run view "$gate_run_id" --repo "$REPOSITORY" \
-  --json jobs --jq '[.jobs[] | select(.name == "base-controlled samorev publisher") | .databaseId] | join(",")')"
+HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+export SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="$(
+  gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" |
+    jq -sr --arg run_id "$GITHUB_RUN_ID" \
+      '[.[].check_runs[] | select((.html_url // "") | contains("/actions/runs/" + $run_id + "/")) | .id] | unique | join(",")'
+)"
 export SAMOREV_IGNORED_GITHUB_CHECK_NAME="base-controlled samorev publisher"
 export SAMOREV_IGNORED_GITHUB_CHECK_APP_ID="15368"
 ```
@@ -265,7 +267,7 @@ A stale, malformed, or mismatched identity excludes nothing and leaves the
 publisher pending, so configuration errors fail by self-waiting rather than by
 silently dropping unrelated CI.
 
-The freshly resolved database IDs are the security boundary. App `15368`
+The freshly resolved Checks API IDs are the security boundary. App `15368`
 identifies GitHub Actions generally—including PR-controlled workflows—and job
 names are author-controllable; app/name comparisons are consistency checks, not
 independent identity factors. Never take run IDs from PR input or static

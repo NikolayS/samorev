@@ -27,7 +27,7 @@ describe("GitHub CI self-check exclusion", () => {
     expect(formatCiBadge("self-only")).toBe("FAIL");
   });
 
-  test("does not hide a similarly named check with a different id", () => {
+  test("does not hide an unrelated completed failure", () => {
     expect(summarizeGitHubCi({ check_runs: [
       { name: "samorev-lint", conclusion: "failure", status: "completed" },
       { ...publisher, app: { id: 15368 }, status: "in_progress", conclusion: null },
@@ -35,6 +35,16 @@ describe("GitHub CI self-check exclusion", () => {
       status: "failure",
       summary: "total=1 success=0 failure=1 pending=0 other=0 excluded_self=1",
       excludedSelf: 1,
+    });
+  });
+
+  test("keeps a pending exact-name/app check blocking when its id is not trusted", () => {
+    expect(summarizeGitHubCi({ check_runs: [
+      { ...publisher, id: 999, app: { id: 15368 }, status: "in_progress", conclusion: null },
+    ] }, trusted)).toEqual({
+      status: "pending",
+      summary: "total=1 success=0 failure=0 pending=1 other=0",
+      excludedSelf: 0,
     });
   });
 
@@ -76,5 +86,10 @@ describe("GitHub CI self-check exclusion", () => {
       summary: "total=1 success=1 failure=0 pending=0 other=0 excluded_self=2",
       excludedSelf: 2,
     });
+  });
+
+  test("fails closed on an unusable CI payload but permits an explicit empty list", () => {
+    expect(summarizeGitHubCi({ message: "Not Found" }).status).toBe("unknown");
+    expect(summarizeGitHubCi({ check_runs: [] }).status).toBe("none");
   });
 });

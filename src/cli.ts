@@ -66,6 +66,9 @@ async function review(args: ReviewArgs): Promise<number> {
 
   if (args.fetch) {
     const githubSelfCheck = parseGitHubSelfCheckEnv(process.env);
+    if (githubSelfCheck && reference.provider !== "github") {
+      console.error("GitHub self-check exclusion is ignored for GitLab reviews");
+    }
     try {
       if (args.noComment) {
         const { report, outcome } = await fetchReviewSummary(reference, plan, relative(repoRoot, promptPath), {
