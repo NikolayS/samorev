@@ -165,7 +165,7 @@ export function parseGitHubSelfCheckEnv(
   if (!configured) return undefined;
   if (runIds.length !== rawIds.length) warn("Ignoring non-numeric GitHub self-check run IDs");
   if (runIds.length === 0 || !name || !/^\d+$/.test(appId)) {
-    warn("Invalid GitHub self-check configuration; run IDs, exact name, and numeric app ID are all required");
+    warn("Warning: incomplete or invalid GitHub self-check exclusion configuration; run IDs, exact name, and numeric app ID are all required; excluding nothing");
     return undefined;
   }
   return { runIds, name, appId };

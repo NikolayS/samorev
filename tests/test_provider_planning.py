@@ -141,6 +141,9 @@ def test_review_command_fails_closed_and_preserves_self_check_context():
     assert "| `failure` | **BLOCKING** - GitHub CI failed" in command_text
     assert "Pipeline status is self-only" in command_text
     assert "Run at least one independent CI check successfully" in command_text
+    assert 'PIPELINE_STATUS="fetch-error"' in command_text
+    assert '.head_pipeline.status // .pipeline.status // "none"' in command_text
+    assert "| any other status | **BLOCKING**" in command_text
 
 
 def test_shell_exports_include_end_to_end_provider_operations():

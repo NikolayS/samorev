@@ -292,11 +292,20 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
   EXCLUDED_SELF=$(jq -r '.excluded_self' <<<"$CI_SUMMARY")
   COVERAGE="N/A"
 else
-  MR_JSON=$(eval "$CI_COMMAND")
-  PIPELINE_STATUS=$(echo "$MR_JSON" | jq -r '.head_pipeline.status // .pipeline.status // "none"')
-  PIPELINE_ID=$(echo "$MR_JSON" | jq -r '.head_pipeline.id // .pipeline.id // empty')
-  PIPELINE_URL=$(echo "$MR_JSON" | jq -r '.head_pipeline.web_url // .pipeline.web_url // empty')
-  COVERAGE=$(echo "$MR_JSON" | jq -r '.head_pipeline.coverage // .pipeline.coverage // "N/A"')
+  CI_ERROR_FILE=$(mktemp)
+  if ! MR_JSON=$(eval "$CI_COMMAND" 2>"$CI_ERROR_FILE"); then
+    CI_ERROR=$(tr '\n' ' ' <"$CI_ERROR_FILE")
+    echo "Warning: GitLab CI fetch failed: ${CI_ERROR:-unknown provider error}; failing closed" >&2
+    MR_JSON='{}'
+    PIPELINE_STATUS="fetch-error"
+  elif ! PIPELINE_STATUS=$(echo "$MR_JSON" | jq -er '.head_pipeline.status // .pipeline.status // "none"') || [ -z "$PIPELINE_STATUS" ]; then
+    echo "Warning: invalid GitLab CI response; failing closed" >&2
+    PIPELINE_STATUS="fetch-error"
+  fi
+  rm -f "$CI_ERROR_FILE"
+  PIPELINE_ID=$(echo "$MR_JSON" | jq -r '.head_pipeline.id // .pipeline.id // empty' 2>/dev/null || true)
+  PIPELINE_URL=$(echo "$MR_JSON" | jq -r '.head_pipeline.web_url // .pipeline.web_url // empty' 2>/dev/null || true)
+  COVERAGE=$(echo "$MR_JSON" | jq -r '.head_pipeline.coverage // .pipeline.coverage // "N/A"' 2>/dev/null || echo "N/A")
 fi
 ```
 
@@ -342,6 +351,7 @@ fi
 | `running` | **BLOCKING** - GitLab CI is still running |
 | `pending` | **BLOCKING** - CI is still pending |
 | `canceled` | **BLOCKING** - CI was canceled |
+| any other status | **BLOCKING** - Unrecognized/non-success CI status; treat as failure |
 
 **Include in report header:**
 
@@ -393,6 +403,14 @@ Where STATUS_EMOJI is:
 **CRITICAL** `CI/Pipeline` - Pipeline status is {PIPELINE_STATUS}
 > GitLab CI has not produced a successful completed pipeline.
 > **Fix:** Wait for a running pipeline or rerun a canceled pipeline, then review again.
+```
+
+**For any other non-success CI status, add to BLOCKING ISSUES:**
+
+```markdown
+**CRITICAL** `CI/Pipeline` - Pipeline status is {PIPELINE_STATUS}
+> CI returned a non-success status that is not otherwise categorized.
+> **Fix:** Produce a successful completed pipeline, then rerun the review.
 ```
 
 **If CI is unknown or fetch-error, add to BLOCKING ISSUES:**

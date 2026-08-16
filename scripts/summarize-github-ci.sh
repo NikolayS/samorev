@@ -41,7 +41,7 @@ for value in \
 done
 
 if [[ "$configured" -gt 0 && "$configured" -lt 3 ]]; then
-  echo "Warning: incomplete GitHub self-check exclusion configuration; excluding nothing" >&2
+  echo "Warning: incomplete or invalid GitHub self-check exclusion configuration; run IDs, exact name, and numeric app ID are all required; excluding nothing" >&2
 elif [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" =~ ^[0-9]+$ ]]; then
   if ! filtered_ci=$(jq -c \
     --argjson trusted_ids "$trusted_ids" \
@@ -60,7 +60,7 @@ elif [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" 
     filtered_ci='{"samorev_fetch_error":true}'
   fi
 elif [[ "$configured" -gt 0 ]]; then
-  echo "Invalid GitHub self-check configuration; run IDs, exact name, and numeric app ID are all required" >&2
+  echo "Warning: incomplete or invalid GitHub self-check exclusion configuration; run IDs, exact name, and numeric app ID are all required; excluding nothing" >&2
 fi
 
 original_count=$(jq -r 'if has("check_runs") and (.check_runs | type) == "array" then (.check_runs | length) else 0 end' <<<"$original_ci")

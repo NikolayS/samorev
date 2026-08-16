@@ -91,7 +91,7 @@ describe("GitHub CI self-check exclusion", () => {
     }, (message) => warnings.push(message))).toEqual({ runIds: ["101", "303"], name: publisher.name, appId: "15368" });
     expect(warnings).toEqual(["Ignoring non-numeric GitHub self-check run IDs"]);
     expect(parseGitHubSelfCheckEnv({ SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS: "303" }, (message) => warnings.push(message))).toBeUndefined();
-    expect(warnings.at(-1)).toContain("all required");
+    expect(warnings.at(-1)).toContain("incomplete or invalid GitHub self-check");
   });
 
   test("supports multiple trusted pending publisher runs", () => {
@@ -115,6 +115,9 @@ describe("GitHub CI self-check exclusion", () => {
       expect.objectContaining({ severity: "HIGH", title: "Pipeline status is none" }),
     ]);
     expect(formatCiBadge("none")).toBe("FAIL");
+    expect(formatCiBadge("canceled")).toBe("FAIL");
+    expect(formatCiBadge("skipped")).toBe("FAIL");
+    expect(formatCiBadge("manual")).toBe("FAIL");
   });
 
   test("treats skipped and neutral checks as successful and stale as failed", () => {

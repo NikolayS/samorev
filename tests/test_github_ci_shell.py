@@ -114,7 +114,7 @@ def test_partial_configuration_warns_and_excludes_nothing():
         SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="303",
     )
     assert summary["status"] == "pending"
-    assert "incomplete GitHub self-check" in stderr
+    assert "incomplete or invalid GitHub self-check" in stderr
 
 
 def test_configuration_normalization_matches_cli_contract():

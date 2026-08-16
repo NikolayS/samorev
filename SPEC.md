@@ -95,7 +95,10 @@ Fetches:
 - CI: `gh api repos/<owner>/<repo>/commits/pull/<number>/head/check-runs --paginate --slurp`
 - Posting: `gh pr comment <number> --repo <owner>/<repo> --body <summary>`
 
-CI summary buckets: `success`, `failure`, `pending`, `other`. A trusted GitHub
+CI summary buckets: `success`, `failure`, `pending`, `other`. The `success`
+bucket counts non-blocking `success`, `skipped`, and `neutral` conclusions; at
+least one genuine `success` is still required for `ci_status=success`, so
+`ci_status` is the authoritative gate signal. A trusted GitHub
 runner may set `SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS` plus the exact publisher
 name and app ID. The comma-separated database IDs, resolved fresh from a
 base-controlled workflow run, are the security boundary. GitHub Actions app
@@ -118,7 +121,8 @@ Fetches:
 - Diff: MR diff text or rendered public API diff entries.
 - Comments: notes; inaccessible notes become `comments_count=0` only in public fallback.
 - Commits: MR commits.
-- CI: `head_pipeline.status` when present; otherwise provider state fallback.
+- CI: `head_pipeline.status`, then legacy `pipeline.status`; missing pipeline
+  data normalizes to `none` and fails closed under `--blocking`.
 - Posting: `glab mr comment <number> --repo <group>/<project> -m <summary>`
 
 ## 6. Architecture

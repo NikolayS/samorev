@@ -905,7 +905,7 @@ export function formatCiBadge(status: string): string {
   if (["pending", "running"].includes(normalized)) {
     return "PENDING";
   }
-  if (["failure", "failed", "self-only", "none", "unknown", "fetch-error"].includes(normalized)) {
+  if (!["success", "passed", "pending", "running"].includes(normalized)) {
     return "FAIL";
   }
   return status || "unknown";
