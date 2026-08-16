@@ -48,7 +48,9 @@ samorev has two surfaces that check **different things**. Pick the right one:
 ### Prerequisites
 
 1. **Bun** (tested with 1.3.x) for the primary `samorev` CLI. No Node runtime is required for the CLI.
-2. **GitHub CLI** (`gh`) authenticated when reviewing GitHub PRs:
+2. **GitHub CLI 2.48.0+** (`gh`) authenticated when reviewing GitHub PRs. Version
+   2.48.0 introduced the `gh api --paginate --slurp` contract used to merge all
+   check-run pages:
    ```bash
    gh auth login
    ```

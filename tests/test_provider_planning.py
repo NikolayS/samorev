@@ -135,11 +135,13 @@ def test_review_command_fails_closed_and_preserves_self_check_context():
     assert "ORIGINAL_CI_JSON=\"$CI_JSON\"" in command_text
     assert "incomplete GitHub self-check exclusion configuration" in command_text
     assert 'split(\",\") | map(gsub(' in command_text
-    assert 'PIPELINE_ID=$(echo "$ORIGINAL_CI_JSON"' in command_text
+    assert 'PIPELINE_ID=$(echo "$PIPELINE_CONTEXT_JSON"' in command_text
     assert "Pipeline status is self-only" in command_text
     assert "Run at least one independent CI check successfully" in command_text
     assert '"fetch-error"' in command_text
-    assert "CI_JSON=$(echo \"$CI_JSON\" | jq 'if type == \"array\"" in command_text
+    assert "invalid paginated check-runs payload" in command_text
+    assert 'CI_JSON=\'{"samorev_fetch_error":true}\'' in command_text
+    assert 'PIPELINE_CONTEXT_JSON="$CI_JSON"' in command_text
 
 
 def test_shell_exports_include_end_to_end_provider_operations():

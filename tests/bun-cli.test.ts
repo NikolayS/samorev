@@ -559,7 +559,8 @@ if (args.slice(0, 3).join(" ") === "pr view 17") {
 } else if (args.slice(0, 2).join(" ") === "api repos/example-org/example-repo/pulls/17/commits") {
   console.log(JSON.stringify([{ sha: "abc" }, { sha: "def" }, { sha: "ghi" }]));
 } else if (args.slice(0, 2).join(" ") === "api repos/example-org/example-repo/commits/pull/17/head/check-runs") {
-  console.log(JSON.stringify({ total_count: 2, check_runs: [{ name: "unit", conclusion: "success" }, { name: "lint", conclusion: "failure" }] }));
+  if (!args.includes("--slurp")) process.exit(43);
+  console.log(JSON.stringify([{ total_count: 2, check_runs: [{ name: "unit", conclusion: "success" }, { name: "lint", conclusion: "failure" }] }]));
 } else if (args.slice(0, 2).join(" ") === "auth status") {
   if (process.env.SAMOREV_FAKE_AUTH === "ok") {
     console.error("Logged in to github.com");
@@ -601,7 +602,8 @@ if (args.slice(0, 3).join(" ") === "pr view 17") {
 } else if (args.slice(0, 2).join(" ") === "api repos/example-org/example-repo/pulls/17/commits") {
   console.log(JSON.stringify([{ sha: "abc" }, { sha: "def" }, { sha: "ghi" }]));
 } else if (args.slice(0, 2).join(" ") === "api repos/example-org/example-repo/commits/pull/17/head/check-runs") {
-  console.log(JSON.stringify(${JSON.stringify({ total_count: checkRuns.length, check_runs: checkRuns })}));
+  if (!args.includes("--slurp")) process.exit(43);
+  console.log(JSON.stringify([${JSON.stringify({ total_count: checkRuns.length, check_runs: checkRuns })}]));
 } else if (args.slice(0, 2).join(" ") === "auth status") {
   console.error("Logged in to github.com");
 } else {

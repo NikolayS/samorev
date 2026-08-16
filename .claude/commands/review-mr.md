@@ -270,7 +270,17 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
   if ! CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null); then
     CI_JSON='{"samorev_fetch_error":true}'
   fi
-  CI_JSON=$(echo "$CI_JSON" | jq 'if type == "array" then {check_runs: [.[].check_runs[]]} else . end')
+  if ! NORMALIZED_CI_JSON=$(echo "$CI_JSON" | jq -c '
+    if type == "array" then
+      if all(.[]; type == "object" and has("check_runs") and (.check_runs | type) == "array")
+      then {check_runs: [.[].check_runs[]]}
+      else error("invalid paginated check-runs payload") end
+    elif type == "object" then .
+    else error("invalid check-runs payload") end'); then
+    CI_JSON='{"samorev_fetch_error":true}'
+  else
+    CI_JSON="$NORMALIZED_CI_JSON"
+  fi
   ORIGINAL_CI_JSON="$CI_JSON"
   ORIGINAL_RUN_COUNT=$(echo "$CI_JSON" | jq '(.check_runs // []) | length')
   SELF_CHECK_CONFIGURED=0
@@ -304,8 +314,18 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
       elif any($runs[]; (.status // "") == "queued") then "pending"
       else "running" end end')
   fi
-  PIPELINE_ID=$(echo "$ORIGINAL_CI_JSON" | jq -r '[(.check_runs // [])[] | .html_url // "" | capture("/actions/runs/(?<id>[0-9]+)")? | .id][0] // empty')
-  PIPELINE_URL=$(echo "$ORIGINAL_CI_JSON" | jq -r '[(.check_runs // [])[] | .html_url // empty][0] // empty')
+  PIPELINE_CONTEXT_JSON="$CI_JSON"
+  if [ "$FILTERED_RUN_COUNT" -eq 0 ]; then
+    PIPELINE_CONTEXT_JSON="$ORIGINAL_CI_JSON"
+  fi
+  PIPELINE_ID=$(echo "$PIPELINE_CONTEXT_JSON" | jq -r '
+    [(.check_runs // [])[] | select((.conclusion // "") == "failure" or (.conclusion // "") == "timed_out" or (.conclusion // "") == "cancelled")] +
+    [(.check_runs // [])[]] |
+    [.[] | .html_url // "" | capture("/actions/runs/(?<id>[0-9]+)")? | .id][0] // empty')
+  PIPELINE_URL=$(echo "$PIPELINE_CONTEXT_JSON" | jq -r '
+    [(.check_runs // [])[] | select((.conclusion // "") == "failure" or (.conclusion // "") == "timed_out" or (.conclusion // "") == "cancelled")] +
+    [(.check_runs // [])[]] |
+    [.[] | .html_url // empty][0] // empty')
   COVERAGE="N/A"
 else
   MR_JSON=$(eval "$CI_COMMAND")

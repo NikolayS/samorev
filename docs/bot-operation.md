@@ -303,6 +303,8 @@ Verdict logic for a bot:
   the unauthenticated public REST API (and cannot fetch private MRs or post).
 - **`gh` returns exit 1 for a nonexistent PR number** → CLI prints
   `Error: Command failed (1) for gh pr view ...` and exits 1. Verify the number.
+- **`gh api` reports `unknown flag: --slurp`** → upgrade GitHub CLI to 2.48.0
+  or newer; `samorev` uses slurped pagination so every check run is evaluated.
 - **`Error: review prompt not found`** → run from the repo root (or a full
   checkout); the CLI resolves `.claude/commands/review-mr.md` relative to the
   package, and exits 1 if it is missing.

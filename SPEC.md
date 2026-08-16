@@ -92,7 +92,7 @@ Fetches:
 - Diff: `gh pr diff <number> --repo <owner>/<repo>`
 - Comments: `gh api repos/<owner>/<repo>/issues/<number>/comments --paginate`
 - Commits: `gh api repos/<owner>/<repo>/pulls/<number>/commits --paginate`
-- CI: `gh api repos/<owner>/<repo>/commits/pull/<number>/head/check-runs --paginate`
+- CI: `gh api repos/<owner>/<repo>/commits/pull/<number>/head/check-runs --paginate --slurp`
 - Posting: `gh pr comment <number> --repo <owner>/<repo> --body <summary>`
 
 CI summary buckets: `success`, `failure`, `pending`, `other`. A trusted GitHub

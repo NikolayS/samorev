@@ -90,6 +90,7 @@ describe("GitHub CI self-check exclusion", () => {
 
   test("fails closed on an unusable CI payload but permits an explicit empty list", () => {
     expect(summarizeGitHubCi({ message: "Not Found" }).status).toBe("unknown");
+    expect(summarizeGitHubCi([{ check_runs: [] }, { message: "partial failure" }]).status).toBe("unknown");
     expect(summarizeGitHubCi({ check_runs: [] }).status).toBe("none");
   });
 
