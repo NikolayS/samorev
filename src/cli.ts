@@ -119,7 +119,11 @@ async function review(args: ReviewArgs): Promise<number> {
         console.log(postedReport);
       } catch (error) {
         if (error instanceof PostingError) {
-          console.log(markPostingBlocked(postedReport));
+          try {
+            console.log(markPostingBlocked(postedReport));
+          } catch (metadataError) {
+            console.error(`Error: ${metadataError instanceof Error ? metadataError.message : String(metadataError)}`);
+          }
         }
         throw error;
       }
@@ -147,10 +151,13 @@ async function review(args: ReviewArgs): Promise<number> {
 }
 
 export function markPostingBlocked(report: string): string {
-  const postedMarker = "\nlive_posting=posted\n```";
-  const markerIndex = report.lastIndexOf(postedMarker);
-  if (markerIndex < 0) return report;
-  return `${report.slice(0, markerIndex)}\nlive_posting=blocked\n\`\`\`${report.slice(markerIndex + postedMarker.length)}`;
+  const blockStart = report.lastIndexOf("\n```text\n");
+  const blockEnd = blockStart < 0 ? -1 : report.indexOf("\n```", blockStart + 9);
+  if (blockStart < 0 || blockEnd < 0) throw new Error("posting metadata block is missing; refusing to print a stale posting state");
+  const metadata = report.slice(blockStart, blockEnd);
+  if (!/^live_posting=posted$/m.test(metadata)) throw new Error("live_posting=posted metadata is missing; refusing to print a stale posting state");
+  const blockedMetadata = metadata.replace(/^live_posting=posted$/m, "live_posting=blocked");
+  return `${report.slice(0, blockStart)}${blockedMetadata}${report.slice(blockEnd)}`;
 }
 
 export function parseGitHubSelfCheckEnv(

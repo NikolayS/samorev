@@ -95,8 +95,6 @@ REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
 PLAN_SCRIPT=""
 for candidate in \
   "${REV_ROOT:-}/lib/provider_planning.py" \
-  "$PWD/lib/provider_planning.py" \
-  "$PWD/rev/lib/provider_planning.py" \
   "$HOME/.claude/samorev/lib/provider_planning.py" \
   "$HOME/.claude/rev/lib/provider_planning.py"; do
   if [ -f "$candidate" ]; then

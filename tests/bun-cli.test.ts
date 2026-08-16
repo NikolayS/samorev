@@ -83,10 +83,11 @@ beforeEach(async () => {
 });
 
 it("rewrites only posting metadata when an earlier standalone marker exists", () => {
-  const report = "finding evidence\nlive_posting=posted\nstill finding\n```text\nprovider=github\nlive_posting=posted\n```";
+  const report = "finding evidence\nlive_posting=posted\nstill finding\n```text\nprovider=github\nlive_posting=posted\nextra=value\n```";
   expect(markPostingBlocked(report)).toBe(
-    "finding evidence\nlive_posting=posted\nstill finding\n```text\nprovider=github\nlive_posting=blocked\n```",
+    "finding evidence\nlive_posting=posted\nstill finding\n```text\nprovider=github\nlive_posting=blocked\nextra=value\n```",
   );
+  expect(() => markPostingBlocked("report without metadata")).toThrow("refusing to print a stale posting state");
 });
 
 afterEach(async () => {

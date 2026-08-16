@@ -14,25 +14,6 @@ fi
 
 mkdir -p "$target_dir"
 
-if [[ -L "$install_root" ]]; then
-  current_root="$(readlink "$install_root")"
-  if [[ "$current_root" != "$repo_root" ]]; then
-    echo "Error: $install_root points to $current_root, not $repo_root" >&2
-    exit 1
-  fi
-elif [[ -e "$install_root" ]]; then
-  echo "Error: $install_root already exists; it must contain the complete samorev checkout" >&2
-  exit 1
-else
-  mkdir -p "$(dirname "$install_root")"
-  ln -s "$repo_root" "$install_root"
-fi
-
-if [[ ! -f "$install_root/lib/provider_planning.py" || ! -f "$install_root/scripts/summarize-github-ci.sh" ]]; then
-  echo "Error: installed samorev helper set is incomplete at $install_root" >&2
-  exit 1
-fi
-
 if [[ -L "$target_command" ]]; then
   current_target="$(readlink "$target_command")"
   if [[ "$current_target" == "$source_command" ]]; then
@@ -45,6 +26,25 @@ if [[ -L "$target_command" ]]; then
 elif [[ -e "$target_command" ]]; then
   echo "Error: $target_command already exists" >&2
   echo "Remove or back it up before installing samorev's /review-mr command." >&2
+  exit 1
+fi
+
+if [[ -e "$install_root" ]]; then
+  resolved_install_root="$(cd "$install_root" 2>/dev/null && pwd -P)" || {
+    echo "Error: cannot resolve install root $install_root" >&2
+    exit 1
+  }
+  if [[ "$resolved_install_root" != "$repo_root" ]]; then
+    echo "Error: $install_root is occupied by a different checkout ($resolved_install_root)" >&2
+    exit 1
+  fi
+else
+  mkdir -p "$(dirname "$install_root")"
+  ln -s "$repo_root" "$install_root"
+fi
+
+if [[ ! -f "$install_root/lib/provider_planning.py" || ! -f "$install_root/scripts/summarize-github-ci.sh" ]]; then
+  echo "Error: installed samorev helper set is incomplete at $install_root" >&2
   exit 1
 fi
 

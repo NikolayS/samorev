@@ -141,6 +141,12 @@ cd ~/.claude/samorev
 bash scripts/install-claude-command.sh
 ```
 
+The installer treats the complete checkout as the trusted runtime root. When
+run elsewhere it links that checkout at `~/.claude/samorev`; when the checkout
+already lives there, it uses it directly. Set `SAMOREV_INSTALL_ROOT` to choose a
+different trusted path. The installer refuses to replace an occupied path or an
+existing user slash command.
+
 To update:
 ```bash
 cd ~/.claude/samorev && git pull
@@ -155,7 +161,10 @@ If you prefer to install samorev as part of a specific project:
 git clone https://github.com/Tanya301/samorev.git
 ```
 
-The `/review-mr` command will be available when running Claude Code from within the samorev directory or any project that includes samorev as a submodule.
+Run `bash samorev/scripts/install-claude-command.sh` after cloning. This links
+the complete checkout into the trusted install root, so `/review-mr` works from
+other project directories without executing helpers discovered from that
+project's working tree.
 
 ## Usage (Claude Code `/review-mr` slash command)
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -35,6 +36,33 @@ def test_installer_links_slash_command_from_clean_checkout(tmp_path: Path):
     assert (install_root / "lib" / "provider_planning.py").is_file()
     assert (install_root / "scripts" / "summarize-github-ci.sh").is_file()
     assert "Installed /review-mr" in result.stdout
+
+
+def test_installer_accepts_checkout_at_default_install_root(tmp_path: Path):
+    home = tmp_path / "home"
+    checkout = home / ".claude" / "samorev"
+    for relative in [
+        "scripts/install-claude-command.sh",
+        "scripts/summarize-github-ci.sh",
+        "lib/provider_planning.py",
+        ".claude/commands/review-mr.md",
+    ]:
+        destination = checkout / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / relative, destination)
+
+    result = subprocess.run(
+        ["bash", "scripts/install-claude-command.sh"],
+        cwd=checkout,
+        env={**os.environ, "HOME": str(home)},
+        capture_output=True,
+        text=True,
+    )
+
+    command_path = home / ".claude" / "commands" / "review-mr.md"
+    assert result.returncode == 0, result.stderr
+    assert command_path.is_symlink()
+    assert command_path.resolve() == checkout / ".claude" / "commands" / "review-mr.md"
 
 
 def test_installed_command_finds_helper_from_arbitrary_repo(tmp_path: Path):
@@ -85,6 +113,27 @@ def test_installer_refuses_to_overwrite_existing_user_command(tmp_path: Path):
     assert result.returncode != 0
     assert "already exists" in result.stderr
     assert command_path.read_text(encoding="utf-8") == "user custom command\n"
+    assert not (home / ".claude" / "samorev").exists()
+
+
+def test_installer_rejects_unrelated_occupied_install_root(tmp_path: Path):
+    home = tmp_path / "home"
+    occupied = home / ".claude" / "samorev"
+    occupied.mkdir(parents=True)
+    (occupied / "owner.txt").write_text("unrelated\n", encoding="utf-8")
+
+    result = subprocess.run(
+        ["bash", "scripts/install-claude-command.sh"],
+        cwd=ROOT,
+        env={**os.environ, "HOME": str(home)},
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "occupied by a different checkout" in result.stderr
+    assert (occupied / "owner.txt").read_text(encoding="utf-8") == "unrelated\n"
+    assert not (home / ".claude" / "commands" / "review-mr.md").exists()
 
 
 def test_slash_command_delegates_to_provider_planning_core():
@@ -92,6 +141,8 @@ def test_slash_command_delegates_to_provider_planning_core():
 
     assert "lib/provider_planning.py" in command
     assert "$HOME/.claude/samorev/lib/provider_planning.py" in command
+    assert '"$PWD/lib/provider_planning.py"' not in command
+    assert '"$PWD/rev/lib/provider_planning.py"' not in command
     assert 'if [ "$REVIEW_PROVIDER" = "github" ]; then' in command
     assert "$METADATA_COMMAND" in command
     assert "$DIFF_COMMAND" in command
