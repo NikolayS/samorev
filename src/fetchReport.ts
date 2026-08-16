@@ -619,6 +619,13 @@ function summarizeGitHubCi(ci: unknown): { status: string; summary: string } {
       counts.other += 1;
       continue;
     }
+    // A samorev verdict publisher may stay pending while this exact review is
+    // running. Counting that self-check makes the reviewer wait on itself and
+    // creates an impossible gate cycle. The fresh review replaces that verdict,
+    // so only independent CI belongs in the pre-review pipeline gate.
+    if (/samorev/i.test(String(run.name ?? ""))) {
+      continue;
+    }
     const conclusion = run.conclusion;
     const status = run.status;
     if (conclusion === "success") {
@@ -632,7 +639,7 @@ function summarizeGitHubCi(ci: unknown): { status: string; summary: string } {
     }
   }
 
-  const total = checkRuns.length;
+  const total = counts.success + counts.failure + counts.pending + counts.other;
   const status = counts.failure
     ? "failure"
     : counts.pending
@@ -883,4 +890,3 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function displayCommand(command: string[]): string {
   return command.join(" ");
 }
-
