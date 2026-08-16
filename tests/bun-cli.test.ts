@@ -37,7 +37,9 @@ async function runSamorev(args: string[], extraEnv: Record<string, string> = {})
     cwd: repoRoot,
     env: {
       ...process.env,
-      SAMOREV_IGNORED_GITHUB_CHECK_RUN_ID: "",
+      SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS: "",
+      SAMOREV_IGNORED_GITHUB_CHECK_NAME: "",
+      SAMOREV_IGNORED_GITHUB_CHECK_APP_ID: "",
       ...extraEnv,
       PATH: `${fakeBin}:${originalPath}`,
     },
@@ -424,7 +426,11 @@ describe("bun samorev CLI", () => {
         "--no-comment",
         "--fetch",
         "--blocking",
-      ], { SAMOREV_IGNORED_GITHUB_CHECK_RUN_ID: "303" }),
+      ], {
+        SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS: "303",
+        SAMOREV_IGNORED_GITHUB_CHECK_NAME: "base-controlled samorev publisher",
+        SAMOREV_IGNORED_GITHUB_CHECK_APP_ID: "15368",
+      }),
     );
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("**Result: PASSED**");
@@ -555,7 +561,7 @@ if (args.slice(0, 3).join(" ") === "pr view 17") {
 } else if (args.slice(0, 2).join(" ") === "api repos/example-org/example-repo/pulls/17/commits") {
   console.log(JSON.stringify([{ sha: "abc" }, { sha: "def" }, { sha: "ghi" }]));
 } else if (args.slice(0, 2).join(" ") === "api repos/example-org/example-repo/commits/pull/17/head/check-runs") {
-  console.log(JSON.stringify({ total_count: 3, check_runs: [{ id: 101, name: "unit", conclusion: "success" }, { id: 202, name: "lint", conclusion: "success" }, { id: 303, name: "base-controlled samorev publisher", status: "in_progress", conclusion: null }] }));
+  console.log(JSON.stringify({ total_count: 3, check_runs: [{ id: 101, name: "unit", conclusion: "success" }, { id: 202, name: "lint", conclusion: "success" }, { id: 303, name: "base-controlled samorev publisher", app: { id: 15368 }, status: "in_progress", conclusion: null }] }));
 } else if (args.slice(0, 2).join(" ") === "auth status") {
   console.error("Logged in to github.com");
 } else {

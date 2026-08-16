@@ -55,9 +55,8 @@ Note:
 *samorev-assisted review (AI analysis by [Tanya301/samorev](https://github.com/Tanya301/samorev))*
 ```
 
-> The `Security/Bugs/Tests/Guidelines/Docs` rows are always `0` from the CLI;
-> only `CI/Pipeline` and `Metadata` can be non-zero. (The AI agents that fill the
-> other rows run only via the `/review-mr` slash command.)
+> The `Security/Bugs/Tests/Guidelines/Docs` rows reflect the bounded Claude
+> review. Model transport or parsing failure fails closed.
 
 ---
 
@@ -141,8 +140,9 @@ echo "verdict=$verdict ci_status=$ci_status live_posting=$live_posting"
 
 Robustness notes:
 
-- A clean `--fetch` exits `0` for **both** PASS and FAIL. Use the body, not `$?`,
-  for the verdict. `$? != 0` means the fetch/post itself failed.
+- With `--blocking`, PASS exits `0` and a completed FAIL verdict exits `1`.
+  Exit `1` can also mean fetch/auth/posting failure; use the body and metadata
+  to distinguish a `### BLOCKING ISSUES` report from an incomplete run.
 - `live_posting=blocked` (with a non-zero exit) means posting was requested but
   provider auth failed — re-auth `gh`/`glab` and retry.
 - Treat `UNKNOWN` as a hard failure (fail closed) rather than assuming PASS.

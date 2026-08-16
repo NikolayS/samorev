@@ -33,6 +33,12 @@ export type FetchReviewResult = {
   outcome: ReviewOutcome;
 };
 
+export type GitHubSelfCheck = {
+  runIds: readonly string[];
+  name: string;
+  appId: string;
+};
+
 /** Per-area finding counts parsed from LLM output. */
 type LlmFindings = {
   /** High-confidence findings (confidence 8-10): appear in Findings column */
@@ -78,6 +84,7 @@ export async function fetchReviewSummary(
      * Production code uses the real claude subprocess via runClaude().
      */
     claudeRunner?: ClaudeRunner;
+    githubSelfCheck?: GitHubSelfCheck;
   } = { blocking: false },
 ): Promise<FetchReviewResult> {
   const runCommand = options.runCommand ?? runText;
@@ -92,7 +99,7 @@ export async function fetchReviewSummary(
   }
 
   const diff = summarizeDiff(fetched.diff);
-  const ci = summarizeCi(reference.provider, fetched.ci, process.env.SAMOREV_IGNORED_GITHUB_CHECK_RUN_ID);
+  const ci = summarizeCi(reference.provider, fetched.ci, options.githubSelfCheck);
   const title = String(fetched.metadata.title ?? fetched.metadata.source_branch ?? "(untitled)");
   const state = String(fetched.metadata.state ?? fetched.metadata.merge_status ?? "unknown");
   const draft = metadataDraft(reference.provider, fetched.metadata);
@@ -606,15 +613,17 @@ function countJsonItems(value: unknown): number {
   return 0;
 }
 
-function summarizeCi(provider: Provider, ci: unknown, ignoredGitHubCheckRunId?: string): { status: string; summary: string } {
-  return provider === "github" ? summarizeGitHubCi(ci, ignoredGitHubCheckRunId) : summarizeGitLabCi(ci);
+function summarizeCi(provider: Provider, ci: unknown, githubSelfCheck?: GitHubSelfCheck): { status: string; summary: string } {
+  return provider === "github" ? summarizeGitHubCi(ci, githubSelfCheck) : summarizeGitLabCi(ci);
 }
 
-export function summarizeGitHubCi(ci: unknown, ignoredCheckRunId?: string): { status: string; summary: string } {
+export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck): { status: string; summary: string } {
   const checkRuns = isRecord(ci) && Array.isArray(ci.check_runs) ? ci.check_runs : [];
   const counts = { success: 0, failure: 0, pending: 0, other: 0 };
   let excludedSelf = 0;
-  const exactIgnoredId = ignoredCheckRunId?.trim();
+  const trustedIds = new Set(githubSelfCheck?.runIds.filter((id) => /^\d+$/.test(id)) ?? []);
+  const trustedName = githubSelfCheck?.name.trim() ?? "";
+  const trustedAppId = githubSelfCheck?.appId.trim() ?? "";
 
   for (const run of checkRuns) {
     if (!isRecord(run)) {
@@ -625,7 +634,10 @@ export function summarizeGitHubCi(ci: unknown, ignoredCheckRunId?: string): { st
     // running. Counting that self-check makes the reviewer wait on itself and
     // creates an impossible gate cycle. The fresh review replaces that verdict,
     // so only independent CI belongs in the pre-review pipeline gate.
-    if (exactIgnoredId && String(run.id ?? "") === exactIgnoredId && run.status !== "completed" && run.conclusion == null) {
+    const app = isRecord(run.app) ? run.app : {};
+    if (trustedIds.has(String(run.id ?? "")) && trustedName && trustedAppId
+      && String(run.name ?? "") === trustedName && String(app.id ?? "") === trustedAppId
+      && run.status !== "completed" && run.conclusion == null) {
       excludedSelf += 1;
       continue;
     }
@@ -702,7 +714,16 @@ export function reviewGateFindings(ciStatus: string, draft: boolean): GateFindin
       fix: "Mark it ready for review before merge.",
     });
   }
-  if (!["success", "none"].includes(ciStatus)) {
+  if (ciStatus === "self-only") {
+    findings.push({
+      area: "CI/Pipeline",
+      severity: "HIGH",
+      subject: "CI/Pipeline",
+      title: "Pipeline status is self-only",
+      detail: "Only explicitly trusted pending samorev publisher checks remained; no independent CI was evaluated.",
+      fix: "Run at least one independent CI check successfully before reviewing.",
+    });
+  } else if (!["success", "none"].includes(ciStatus)) {
     findings.push({
       area: "CI/Pipeline",
       severity: ciStatus === "pending" ? "HIGH" : "CRITICAL",
@@ -856,7 +877,7 @@ function renderRevLikeReport(args: {
   return lines.join("\n");
 }
 
-function formatCiBadge(status: string): string {
+export function formatCiBadge(status: string): string {
   const normalized = status.toLowerCase();
   if (["success", "passed"].includes(normalized)) {
     return "PASS";
@@ -864,7 +885,7 @@ function formatCiBadge(status: string): string {
   if (["pending", "running"].includes(normalized)) {
     return "PENDING";
   }
-  if (["failure", "failed"].includes(normalized)) {
+  if (["failure", "failed", "self-only"].includes(normalized)) {
     return "FAIL";
   }
   return status || "unknown";

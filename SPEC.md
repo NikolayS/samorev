@@ -68,7 +68,7 @@ Modes:
 
 - `--fetch`: execute provider metadata, diff, comments, commits, and CI fetches; renders a PASS/FAIL review-gate comment and posts it provider-native unless `--no-comment` is set.
 - `--smoke`: render provider plan and prompt wiring; no provider network fetch.
-- `--blocking`: report blocking-mode intent in output; exit semantics for actual findings are deferred until agent execution is wired into the CLI.
+- `--blocking`: report blocking-mode intent and exit `1` when the rendered verdict is FAIL. Exit `1` also covers fetch/auth/posting errors, so bots parse the report shape to distinguish them.
 - no `--fetch` and `--no-comment`: print handoff instructions.
 
 Exit behavior:
@@ -94,9 +94,10 @@ Fetches:
 - Posting: `gh pr comment <number> --repo <owner>/<repo> --body <summary>`
 
 CI summary buckets: `success`, `failure`, `pending`, `other`. A trusted GitHub
-runner may set `SAMOREV_IGNORED_GITHUB_CHECK_RUN_ID` to the unforgeable database
-ID of one current pending verdict-publisher check run. Completed runs are never
-excluded. Exclusions are reported as `excluded_self=N`; if exclusion leaves no
+runner may set `SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS` plus the exact publisher
+name and app ID. The comma-separated database IDs are the primary identity; the
+name/app match is defense in depth. Completed runs are never excluded.
+Exclusions are reported as `excluded_self=N`; if exclusion leaves no
 independent CI, status is `self-only` and the gate fails closed. GitLab uses its
 aggregate pipeline status and does not support this exclusion.
 

@@ -2,7 +2,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { fetchReviewSummary, FetchError } from "./fetchReport";
+import { fetchReviewSummary, FetchError, type GitHubSelfCheck } from "./fetchReport";
 import { assertProviderAuth, postProviderSummary, PostingError, postingTool } from "./providerPosting";
 import { parseReviewReference, planFetch, ReviewReferenceError } from "./providerPlanning";
 
@@ -65,6 +65,7 @@ async function review(args: ReviewArgs): Promise<number> {
   }
 
   if (args.fetch) {
+    const githubSelfCheck = githubSelfCheckFromEnv();
     try {
       if (args.noComment) {
         const { report, outcome } = await fetchReviewSummary(reference, plan, relative(repoRoot, promptPath), {
@@ -72,23 +73,24 @@ async function review(args: ReviewArgs): Promise<number> {
           noComment: true,
           postedBy: "local",
           livePosting: "not-run",
+          githubSelfCheck,
         });
         console.log(report);
         return args.blocking && outcome === "FAIL" ? 1 : 0;
       }
 
       const tool = postingTool(reference);
-      const { report: blockedReport } = await fetchReviewSummary(reference, plan, relative(repoRoot, promptPath), {
-        blocking: args.blocking,
-        noComment: false,
-        postedBy: tool,
-        livePosting: "blocked",
-      });
-
       try {
         await assertProviderAuth(reference);
       } catch (error) {
         if (error instanceof PostingError) {
+          const { report: blockedReport } = await fetchReviewSummary(reference, plan, relative(repoRoot, promptPath), {
+            blocking: args.blocking,
+            noComment: false,
+            postedBy: tool,
+            livePosting: "blocked",
+            githubSelfCheck,
+          });
           console.log(blockedReport);
           console.error(error.message);
           return 1;
@@ -101,6 +103,7 @@ async function review(args: ReviewArgs): Promise<number> {
         noComment: false,
         postedBy: tool,
         livePosting: "posted",
+        githubSelfCheck,
       });
       await postProviderSummary(reference, plan, postedReport);
       console.log(postedReport);
@@ -125,6 +128,14 @@ async function review(args: ReviewArgs): Promise<number> {
 
   console.error("Error: live posting from the CLI is not enabled yet. Use --no-comment, --fetch, or --smoke.");
   return 2;
+}
+
+function githubSelfCheckFromEnv(): GitHubSelfCheck | undefined {
+  const runIds = (process.env.SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS ?? "")
+    .split(",").map((value) => value.trim()).filter((value) => /^\d+$/.test(value));
+  const name = (process.env.SAMOREV_IGNORED_GITHUB_CHECK_NAME ?? "").trim();
+  const appId = (process.env.SAMOREV_IGNORED_GITHUB_CHECK_APP_ID ?? "").trim();
+  return runIds.length > 0 && name && /^\d+$/.test(appId) ? { runIds, name, appId } : undefined;
 }
 
 function parseReviewArgs(argv: string[]): ReviewArgs {

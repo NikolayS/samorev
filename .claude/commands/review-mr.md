@@ -268,6 +268,18 @@ This ensures we:
 # Get CI/pipeline status using the provider-specific CI operation.
 if [ "$REVIEW_PROVIDER" = "github" ]; then
   CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null || echo '{"check_runs":[]}')
+  if [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS:-}" ] &&
+     [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_NAME:-}" ] &&
+     [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_APP_ID:-}" ]; then
+    CI_JSON=$(echo "$CI_JSON" | jq \
+      --arg ids ",${SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS}," \
+      --arg name "$SAMOREV_IGNORED_GITHUB_CHECK_NAME" \
+      --arg app "$SAMOREV_IGNORED_GITHUB_CHECK_APP_ID" '
+      .check_runs = [(.check_runs // [])[] | . as $run |
+        select((($ids | contains("," + ($run.id | tostring) + ",")) and
+          $run.name == $name and ($run.app.id | tostring) == $app and
+          $run.status != "completed" and $run.conclusion == null) | not)]')
+  fi
   PIPELINE_STATUS=$(echo "$CI_JSON" | jq -r '
     (.check_runs // []) as $runs |
     if ($runs | length) == 0 then "unknown"

@@ -163,7 +163,7 @@ remote URL`). GitHub remotes resolve to PRs; GitLab remotes resolve to MRs.
 |------|--------|
 | `--fetch` | Execute provider fetches, render the PASS/FAIL gate report. Posts it unless `--no-comment`. |
 | `--no-comment` | Print report to stdout only; never post to the provider. |
-| `--blocking` | Recorded in output as `blocking=true`. **Does not change the CLI exit code** (the CLI does not exit non-zero on gate FAIL today; see gotchas). |
+| `--blocking` | Recorded as `blocking=true`; exits 1 when the rendered verdict is FAIL. |
 | `--smoke` | Print the provider plan (commands it *would* run) + wiring. No network. |
 | `--remote-url <url>` | Resolve a numeric reference to a project. |
 
@@ -173,8 +173,8 @@ remote URL`). GitHub remotes resolve to PRs; GitLab remotes resolve to MRs.
 |-----------|-----------|------|
 | `review <ref> --smoke --no-comment` | Print plan only, no network | 0 |
 | `review <ref> --no-comment` (no `--fetch`) | Print "handoff" (the planned commands + prompt path) | 0 |
-| `review <ref> --no-comment --fetch` | Fetch + render report to stdout, no posting | 0 (1 on fetch error) |
-| `review <ref> --fetch` | Fetch + render + **post** via `gh`/`glab` | 0 (1 if auth/posting fails) |
+| `review <ref> --no-comment --fetch` | Fetch + render report to stdout, no posting | 0; with `--blocking`, 1 on FAIL; 1 on fetch error |
+| `review <ref> --fetch` | Fetch + render + **post** via `gh`/`glab` | 0; with `--blocking`, 1 on FAIL; 1 on auth/posting error |
 | `review <ref>` (no `--fetch`, no `--no-comment`) | Error: live posting from CLI not enabled; use a flag | 2 |
 
 ### Bot recipes
@@ -211,12 +211,11 @@ bun run samorev review https://github.com/OWNER/REPO/pull/123 --no-comment --blo
 | Code | Meaning |
 |------|---------|
 | `0` | Successful smoke / handoff / fetch-report / posted comment |
-| `1` | Provider fetch failed, required prompt file missing, or posting/auth failed |
+| `1` | With `--blocking`, a rendered FAIL verdict; otherwise provider fetch/prompt/posting/auth failure |
 | `2` | Invalid arguments or invalid/missing reference |
 
-> A FAIL **verdict** (CI failing / draft) still exits `0` on a successful
-> `--fetch`. A bot must parse the report body (Section 5) to get the verdict —
-> the process exit code reflects whether the *fetch ran*, not the verdict.
+> Because both a completed blocking verdict and a tooling/auth failure can exit
+> `1`, a bot must still parse the report body and metadata (Section 5).
 
 ---
 
@@ -242,11 +241,29 @@ live_posting=not-run
 ```
 
 For GitHub verdict publishers that wait on the review itself, set
-`SAMOREV_IGNORED_GITHUB_CHECK_RUN_ID` to the database ID of the current pending
-publisher check run. Completed runs are never excluded. The metadata then
-appends `excluded_self=N`; `total` counts evaluated independent
-checks. A self-only set reports `ci_status=self-only` and fails closed. This
+`SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS` to the comma-separated database IDs of
+the current pending publisher runs, plus `SAMOREV_IGNORED_GITHUB_CHECK_NAME`
+and `SAMOREV_IGNORED_GITHUB_CHECK_APP_ID` to their expected identity. Completed
+runs are never excluded. The metadata then appends `excluded_self=N`; `total`
+counts evaluated independent checks. A self-only set reports
+`ci_status=self-only` and fails closed. This
 exclusion does not apply to GitLab's aggregate pipeline status.
+
+Resolve trusted IDs from the base-controlled `samorev-gate` status target, not
+by accepting a PR-supplied job name. For example:
+
+```bash
+gate_run_id="$(gh api "repos/$REPOSITORY/commits/$HEAD_SHA/statuses" --paginate \
+  --jq '[.[] | select(.context == "samorev-gate" and .state == "pending")][0].target_url | capture("/actions/runs/(?<id>[0-9]+)").id')"
+export SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="$(gh run view "$gate_run_id" --repo "$REPOSITORY" \
+  --json jobs --jq '[.jobs[] | select(.name == "base-controlled samorev publisher") | .databaseId] | join(",")')"
+export SAMOREV_IGNORED_GITHUB_CHECK_NAME="base-controlled samorev publisher"
+export SAMOREV_IGNORED_GITHUB_CHECK_APP_ID="15368"
+```
+
+A stale, malformed, or mismatched identity excludes nothing and leaves the
+publisher pending, so configuration errors fail by self-waiting rather than by
+silently dropping unrelated CI.
 
 Verdict logic for a bot:
 
@@ -260,12 +277,10 @@ Verdict logic for a bot:
 
 ## 6. Gotchas & troubleshooting
 
-- **`--blocking` does not affect exit code.** As of the current CLI it only sets
-  `blocking=true` in the output. To gate CI on a FAIL, parse the report body, not
-  `$?`. (`SPEC.md §4` states exit-on-findings is deferred.)
-- **PASS/FAIL is CI + draft only.** The CLI does not run the AI agents, so a
-  clean diff with a green pipeline returns PASS even if it contains bugs. Use the
-  `/review-mr` slash command (Surface B) for actual code analysis.
+- **`--blocking` makes FAIL exit 1.** Parse the body as well because fetch,
+  prompt, auth, and posting failures also use exit 1 without a completed verdict.
+- **PASS/FAIL includes the bounded Claude review.** A model transport or parse
+  error fails closed rather than silently producing an empty finding set.
 - **GitLab public-fallback CI is approximate.** The gate reads
   `head_pipeline.status`; the public REST API metadata often lacks it, so the CLI
   falls back to the MR `state` (e.g. `merged`, `opened`) as the "CI status".

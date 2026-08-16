@@ -15,10 +15,9 @@ samorev has two surfaces that check **different things**. Pick the right one:
 
 - **Bun CLI — `samorev review`** (the surface a bot runs). A deterministic
   provider-fetch + **review-gate**. With `--fetch` it pulls PR/MR metadata, diff,
-  comments, commits, and CI status and renders a **PASS/FAIL** report whose gate
-  is **CI status + draft state only**. It does **not** run the AI review agents
-  itself — the Security/Bugs/Tests/Guidelines/Docs rows are always `0` from the
-  CLI. See [`docs/bot-operation.md`](docs/bot-operation.md).
+  comments, commits, and CI status, invokes the bounded Claude review runner,
+  and renders a **PASS/FAIL** report from CI, draft state, and code findings.
+  See [`docs/bot-operation.md`](docs/bot-operation.md).
 - **Claude Code slash command — `/review-mr`** (interactive). Runs the 5–6
   parallel LLM agents below for actual code analysis, plus CI, metadata, linked
   issue, and optional SOC2 checks. Requires a Claude Code session.
@@ -113,9 +112,9 @@ bun run samorev review https://gitlab.com/example-org/example-repo/-/merge_reque
 bun run samorev review 123 --remote-url git@github.com:example-org/example-repo.git --no-comment --blocking
 ```
 
-The Bun/TypeScript CLI is the primary interface for LLM agents. `--fetch` executes the provider metadata, diff, comments, commits, and CI fetches itself, then renders a readable PASS/FAIL review-gate comment with findings or a no-blockers statement plus title/state/draft status, diff size, comment count, commit count, CI summary, `posted_by`, and `live_posting`. For GitHub only, a trusted runner may set `SAMOREV_IGNORED_GITHUB_CHECK_RUN_ID` to the unforgeable database ID of its current pending verdict-publisher check run: counting that self-check would make the reviewer wait on itself. Completed checks are never excluded. The exclusion is reported as `excluded_self` and fails closed when no independent checks remain. GitLab aggregate pipeline status is unchanged and must not contain a self-waiting verdict job. Without `--no-comment`, the same gate comment is posted provider-native through authenticated `gh` or `glab`. GitHub uses `gh`. GitLab uses `glab` for authenticated posting and falls back to GitLab's public API only for no-comment public fetch reports.
+The Bun/TypeScript CLI is the primary interface for LLM agents. `--fetch` executes the provider metadata, diff, comments, commits, and CI fetches itself, then renders a readable PASS/FAIL review-gate comment with findings or a no-blockers statement plus title/state/draft status, diff size, comment count, commit count, CI summary, `posted_by`, and `live_posting`. For GitHub only, a trusted runner may configure `SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS`, `SAMOREV_IGNORED_GITHUB_CHECK_NAME`, and `SAMOREV_IGNORED_GITHUB_CHECK_APP_ID` for its current pending verdict publisher: counting those self-checks would make the reviewer wait on itself. The run database IDs are the primary identity; exact name and app ID are required as defense in depth. Completed checks are never excluded. Exclusions are reported as `excluded_self` and fail closed when no independent checks remain. GitLab aggregate pipeline status is unchanged and must not contain a self-waiting verdict job. Without `--no-comment`, the same gate comment is posted provider-native through authenticated `gh` or `glab`. GitHub uses `gh`. GitLab uses `glab` for authenticated posting and falls back to GitLab's public API only for no-comment public fetch reports.
 
-> **Bot verdict parsing:** a successful `--fetch` exits `0` for **both** PASS and FAIL — the exit code reflects whether the fetch ran, not the verdict. Parse the report body: `**Result: PASSED**` means PASS, a `### BLOCKING ISSUES (N)` header means FAIL. `--blocking` only records `blocking=true` in the output; it does **not** change the CLI exit code today (exit-on-findings is deferred — see SPEC §4). Full grammar: [`docs/verdict-parsing.md`](docs/verdict-parsing.md).
+> **Bot verdict parsing:** with `--blocking`, a FAIL report exits `1`; a PASS exits `0`. Exit `1` can also mean fetch/auth/posting failure, so parse the report body and metadata: `**Result: PASSED**` means PASS, while `### BLOCKING ISSUES (N)` means a completed FAIL verdict. Full grammar: [`docs/verdict-parsing.md`](docs/verdict-parsing.md).
 
 The installable CLI is the Bun package declared in `package.json`. The old Python package wrapper is retired; Python remains only for Claude Code slash-command compatibility helpers and legacy pytest coverage. `.gitattributes` marks those retained compatibility paths as Linguist-vendored so GitHub language presentation reflects the Bun/TypeScript-first CLI.
 
