@@ -274,7 +274,7 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
   CI_SUMMARY_FALLBACK='{"original":{"samorev_fetch_error":true},"filtered":{"samorev_fetch_error":true},"status":"fetch-error","pipeline_id":"","pipeline_url":"","original_count":0,"filtered_count":0,"excluded_self":0}'
   if [ ! -f "$SAMOREV_ROOT/scripts/summarize-github-ci.sh" ] ||
      ! CI_SUMMARY=$(printf '%s' "$CI_JSON" | bash "$SAMOREV_ROOT/scripts/summarize-github-ci.sh"); then
-    echo "Warning: GitHub CI summarizer unavailable; failing closed" >&2
+    echo "Warning: GitHub CI summarizer unavailable at $SAMOREV_ROOT/scripts/summarize-github-ci.sh; failing closed" >&2
     CI_SUMMARY="$CI_SUMMARY_FALLBACK"
   fi
   if ! jq -e 'type == "object" and (.status | type) == "string" and (.status | length) > 0 and (.pipeline_id | type) == "string" and (.pipeline_url | type) == "string"' <<<"$CI_SUMMARY" >/dev/null; then
@@ -284,10 +284,11 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
   PIPELINE_STATUS=$(jq -r '.status' <<<"$CI_SUMMARY")
   PIPELINE_ID=$(jq -r '.pipeline_id' <<<"$CI_SUMMARY")
   PIPELINE_URL=$(jq -r '.pipeline_url' <<<"$CI_SUMMARY")
+  EXCLUDED_SELF=$(jq -r '.excluded_self' <<<"$CI_SUMMARY")
   COVERAGE="N/A"
 else
   MR_JSON=$(eval "$CI_COMMAND")
-  PIPELINE_STATUS=$(echo "$MR_JSON" | jq -r '.head_pipeline.status // .pipeline.status // "unknown"')
+  PIPELINE_STATUS=$(echo "$MR_JSON" | jq -r '.head_pipeline.status // .pipeline.status // "none"')
   PIPELINE_ID=$(echo "$MR_JSON" | jq -r '.head_pipeline.id // .pipeline.id // empty')
   PIPELINE_URL=$(echo "$MR_JSON" | jq -r '.head_pipeline.web_url // .pipeline.web_url // empty')
   COVERAGE=$(echo "$MR_JSON" | jq -r '.head_pipeline.coverage // .pipeline.coverage // "N/A"')
@@ -343,6 +344,10 @@ fi
 **CI Status:** {STATUS_EMOJI} {PIPELINE_STATUS} ([view pipeline]({PIPELINE_URL}))
 **Coverage:** {COVERAGE}%
 ```
+
+When `EXCLUDED_SELF` is greater than zero, add this visible line immediately
+below the header: `> Excluded {EXCLUDED_SELF} explicitly trusted pending
+samorev publisher check run(s) from the independent-CI gate.`
 
 Where STATUS_EMOJI is:
 - ✅ for success

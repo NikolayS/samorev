@@ -133,6 +133,11 @@ Only relevant if the bot drives `/review-mr` inside Claude Code:
 | `SAMOREV_IGNORED_GITHUB_CHECK_NAME` | `scripts/summarize-github-ci.sh` | Exact trusted publisher name; shared with Surface A. |
 | `SAMOREV_IGNORED_GITHUB_CHECK_APP_ID` | `scripts/summarize-github-ci.sh` | Numeric trusted publisher app ID; shared with Surface A. |
 
+The `/review-mr` installation is a repository installation, not a standalone
+command-file copy. Keep `scripts/summarize-github-ci.sh` beside
+`lib/provider_planning.py` when installing or upgrading; missing either helper
+makes GitHub reviews fail closed.
+
 ### NOT needed to operate samorev
 
 - `ANTHROPIC_API_KEY` — used **only** by the optional agent-quality test suite
@@ -265,6 +270,7 @@ In that GitHub Actions step:
 ```yaml
 env:
   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PR_URL: ${{ github.event.pull_request.html_url }}
 run: |
   export SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="$(
     gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" |
@@ -321,6 +327,9 @@ Verdict logic for a bot:
   run `gh auth status` / `glab auth status` and re-auth.
 - **Invalid JSON from provider** → `Error: <tool> returned invalid JSON ...`
   (exit 1); usually a `gh`/`glab` auth or rate-limit problem.
+- **GitHub reports zero check runs** → `ci_status=none` is a HIGH gate finding;
+  `--blocking` exits 1. This is intentionally fail-closed and is a breaking
+  change for repositories that previously reviewed PRs without CI.
 
 ---
 

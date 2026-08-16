@@ -60,15 +60,7 @@ DIFF_CONTENT=$(eval "$DIFF_COMMAND")
 COMMENTS_JSON=$(eval "$COMMENTS_COMMAND")
 COMMITS_JSON=$(eval "$COMMITS_COMMAND")
 CI_JSON=$(eval "$CI_COMMAND")
-CI_JSON=$(echo "$CI_JSON" | jq 'if type == "array" then {check_runs: [.[].check_runs[]]} else . end')
-
-PIPELINE_STATUS=$(echo "$CI_JSON" | jq -r '
-  (.check_runs // []) as $runs |
-  if ($runs | length) == 0 then "unknown"
-  elif any($runs[]; (.conclusion // "") == "failure" or (.conclusion // "") == "timed_out" or (.conclusion // "") == "cancelled") then "failed"
-  elif all($runs[]; (.conclusion // "") == "success" or (.conclusion // "") == "skipped" or (.conclusion // "") == "neutral") then "success"
-  elif any($runs[]; (.status // "") == "queued") then "pending"
-  else "running" end')
+PIPELINE_STATUS=$(printf '%s' "$CI_JSON" | bash "$repo_root/scripts/summarize-github-ci.sh" | jq -r '.status')
 
 echo "provider=$REVIEW_PROVIDER"
 echo "review=$REVIEW_KIND $PROJECT#$REVIEW_NUMBER"

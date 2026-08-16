@@ -1,0 +1,33 @@
+[
+  {
+    "name": "success_with_skipped",
+    "payload": {"check_runs": [{"status": "completed", "conclusion": "success"}, {"status": "completed", "conclusion": "skipped"}]},
+    "status": "success",
+    "excluded_self": 0
+  },
+  {
+    "name": "stale_is_failure",
+    "payload": {"check_runs": [{"status": "completed", "conclusion": "stale"}]},
+    "status": "failure",
+    "excluded_self": 0
+  },
+  {
+    "name": "malformed_run_is_unknown",
+    "payload": {"check_runs": [null]},
+    "status": "unknown",
+    "excluded_self": 0
+  },
+  {
+    "name": "empty_is_none",
+    "payload": {"check_runs": []},
+    "status": "none",
+    "excluded_self": 0
+  },
+  {
+    "name": "publisher_only_is_self_only",
+    "payload": {"check_runs": [{"id": 303, "name": "base-controlled samorev publisher", "app": {"id": 15368}, "status": "in_progress", "conclusion": null}]},
+    "self_check": {"run_ids": ["303"], "name": "base-controlled samorev publisher", "app_id": "15368"},
+    "status": "self-only",
+    "excluded_self": 1
+  }
+]

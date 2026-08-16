@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 SCRIPT = ROOT / "scripts" / "summarize-github-ci.sh"
+PARITY_CASES = json.loads((ROOT / "tests" / "fixtures" / "github-ci-parity.json").read_text())
 SELF_CHECK_VARS = {
     "SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS",
     "SAMOREV_IGNORED_GITHUB_CHECK_NAME",
@@ -41,6 +42,21 @@ def test_slurped_pages_and_non_blocking_conclusions():
     assert summary["filtered_count"] == 2
 
 
+def test_matches_shared_shell_typescript_fixture_table():
+    for fixture in PARITY_CASES:
+        self_check = fixture.get("self_check")
+        env = {}
+        if self_check:
+            env = {
+                "SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS": ",".join(self_check["run_ids"]),
+                "SAMOREV_IGNORED_GITHUB_CHECK_NAME": self_check["name"],
+                "SAMOREV_IGNORED_GITHUB_CHECK_APP_ID": self_check["app_id"],
+            }
+        summary, _ = summarize(fixture["payload"], **env)
+        assert summary["status"] == fixture["status"], fixture["name"]
+        assert summary["excluded_self"] == fixture["excluded_self"], fixture["name"]
+
+
 def test_malformed_payloads_fail_closed():
     assert summarize({"message": "Not Found"})[0]["status"] == "unknown"
     assert summarize({"check_runs": "oops"})[0]["status"] == "unknown"
@@ -49,6 +65,10 @@ def test_malformed_payloads_fail_closed():
         ["bash", str(SCRIPT)], input="not-json", env=clean_env(), capture_output=True, text=True, check=True
     )
     assert json.loads(result.stdout)["status"] == "fetch-error"
+    empty = subprocess.run(
+        ["bash", str(SCRIPT)], input="", env=clean_env(), capture_output=True, text=True, check=True
+    )
+    assert json.loads(empty.stdout)["status"] == "fetch-error"
 
 
 def test_empty_and_trusted_publisher_only_are_blocking_states():

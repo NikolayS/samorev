@@ -12,6 +12,9 @@ if ! original_ci=$(jq -c '
 ' <<<"$raw_ci" 2>/dev/null); then
   original_ci='{"samorev_fetch_error":true}'
 fi
+if [[ -z "$original_ci" ]]; then
+  original_ci='{"samorev_fetch_error":true}'
+fi
 
 filtered_ci="$original_ci"
 raw_ids=$(jq -cn --arg ids "${SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS:-}" '$ids | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')
@@ -71,6 +74,7 @@ else
     elif (has("check_runs") and (.check_runs | type) == "array") | not then "unknown"
     else .check_runs as $runs |
       if ($runs | length) == 0 then "none"
+      elif any($runs[]; type != "object") then "unknown"
       elif any($runs[]; (.conclusion // "") as $conclusion | ["failure", "timed_out", "cancelled", "action_required", "stale"] | index($conclusion)) then "failure"
       elif any($runs[]; (.status // "") != "completed" or .conclusion == null) then "pending"
       elif all($runs[]; (.conclusion // "") as $conclusion | ["success", "skipped", "neutral"] | index($conclusion)) then "success"
@@ -81,16 +85,15 @@ fi
 
 pipeline_context="$filtered_ci"
 pipeline_context=$(jq -c 'if has("check_runs") and (.check_runs | type) == "array" then . else {check_runs: []} end' <<<"$pipeline_context")
-pipeline_id=$(jq -r '
-  [(.check_runs // [])[] | . as $run | select(["failure", "timed_out", "cancelled", "action_required", "stale"] | index($run.conclusion // ""))] +
-  [(.check_runs // [])[]] |
-  [.[] | .html_url // "" | capture("/actions/runs/(?<id>[0-9]+)")? | .id][0] // empty
+pipeline_candidate=$(jq -c '
+  def failed: (.conclusion // "") as $conclusion | ["failure", "timed_out", "cancelled", "action_required", "stale"] | index($conclusion);
+  def actions: (.html_url // "") | test("/actions/runs/[0-9]+");
+  (([.check_runs[] | select(failed and actions)] +
+    [.check_runs[] | select(actions)] +
+    [.check_runs[]]) | .[0]) // {}
 ' <<<"$pipeline_context")
-pipeline_url=$(jq -r '
-  [(.check_runs // [])[] | . as $run | select(["failure", "timed_out", "cancelled", "action_required", "stale"] | index($run.conclusion // ""))] +
-  [(.check_runs // [])[]] |
-  [.[] | .html_url // empty][0] // empty
-' <<<"$pipeline_context")
+pipeline_id=$(jq -r '.html_url // "" | capture("/actions/runs/(?<id>[0-9]+)")? | .id // empty' <<<"$pipeline_candidate")
+pipeline_url=$(jq -r '.html_url // empty' <<<"$pipeline_candidate")
 
 jq -cn \
   --argjson original "$original_ci" \

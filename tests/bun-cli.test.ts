@@ -167,6 +167,15 @@ describe("bun samorev CLI", () => {
 
   it("prints a blocked report when provider posting fails", async () => {
     await writeGitHubFake();
+    await writeFakeClaude([
+      "FINDING:",
+      "- severity: MEDIUM",
+      "- confidence: 8",
+      "- area: Bugs",
+      "- issue: finding text contains live_posting=posted before metadata",
+      "- evidence: synthetic regression fixture",
+      "- fix: anchor metadata replacement",
+    ].join("\n"));
     const result = await output(
       await runSamorev([
         "review",
@@ -178,6 +187,7 @@ describe("bun samorev CLI", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Provider posting failed");
     expect(result.stdout).toContain("## samorev Code Review Report");
+    expect(result.stdout).toContain("finding text contains live_posting=posted");
     expect(expectMetadataDetails(result.stdout)).toContain("live_posting=blocked");
   });
 

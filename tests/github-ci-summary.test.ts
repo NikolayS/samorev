@@ -1,11 +1,30 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { formatCiBadge, reviewGateFindings, summarizeGitHubCi } from "../src/fetchReport";
 import { parseGitHubSelfCheckEnv } from "../src/cli";
 
 const publisher = { id: 303, name: "base-controlled samorev publisher" };
 const trusted = { runIds: ["303"], name: publisher.name, appId: "15368" };
+const parityCases = JSON.parse(readFileSync(new URL("./fixtures/github-ci-parity.json", import.meta.url), "utf8")) as Array<{
+  name: string;
+  payload: unknown;
+  self_check?: { run_ids: string[]; name: string; app_id: string };
+  status: string;
+  excluded_self: number;
+}>;
 
 describe("GitHub CI self-check exclusion", () => {
+  test("matches the shared shell/TypeScript fixture table", () => {
+    for (const fixture of parityCases) {
+      const selfCheck = fixture.self_check
+        ? { runIds: fixture.self_check.run_ids, name: fixture.self_check.name, appId: fixture.self_check.app_id }
+        : undefined;
+      const summary = summarizeGitHubCi(fixture.payload, selfCheck);
+      expect(summary.status, fixture.name).toBe(fixture.status);
+      expect(summary.excludedSelf, fixture.name).toBe(fixture.excluded_self);
+    }
+  });
+
   test("excludes only the exact configured publisher and discloses it", () => {
     expect(summarizeGitHubCi({ check_runs: [
       { name: "typecheck", conclusion: "success" },

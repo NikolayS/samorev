@@ -119,7 +119,7 @@ async function review(args: ReviewArgs): Promise<number> {
         console.log(postedReport);
       } catch (error) {
         if (error instanceof PostingError) {
-          console.log(postedReport.replace("live_posting=posted", "live_posting=blocked"));
+          console.log(postedReport.replace(/^live_posting=posted$/m, "live_posting=blocked"));
         }
         throw error;
       }
