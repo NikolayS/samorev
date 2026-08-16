@@ -241,6 +241,12 @@ no_comment=true
 live_posting=not-run
 ```
 
+For GitHub verdict publishers that wait on the review itself, set
+`SAMOREV_IGNORED_GITHUB_CHECK_NAME` to the publisher's exact check-run name.
+The metadata then appends `excluded_self=N`; `total` counts evaluated independent
+checks. A self-only set reports `ci_status=self-only` and fails closed. This
+exclusion does not apply to GitLab's aggregate pipeline status.
+
 Verdict logic for a bot:
 
 - **PASS** ⇔ the body contains `**Result: PASSED**` (and no `### BLOCKING

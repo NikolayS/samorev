@@ -423,11 +423,11 @@ describe("bun samorev CLI", () => {
         "--no-comment",
         "--fetch",
         "--blocking",
-      ]),
+      ], { SAMOREV_IGNORED_GITHUB_CHECK_NAME: "base-controlled samorev publisher" }),
     );
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("**Result: PASSED**");
-    expect(expectMetadataDetails(result.stdout)).toContain("ci_summary=total=2 success=2 failure=0 pending=0 other=0");
+    expect(expectMetadataDetails(result.stdout)).toContain("ci_summary=total=2 success=2 failure=0 pending=0 other=0 excluded_self=1");
   });
 
   it("plans numeric GitHub references from remote URL", () => {

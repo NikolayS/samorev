@@ -93,7 +93,11 @@ Fetches:
 - CI: `gh api repos/<owner>/<repo>/commits/pull/<number>/head/check-runs --paginate`
 - Posting: `gh pr comment <number> --repo <owner>/<repo> --body <summary>`
 
-CI summary buckets: `success`, `failure`, `pending`, `other`.
+CI summary buckets: `success`, `failure`, `pending`, `other`. A trusted GitHub
+runner may set `SAMOREV_IGNORED_GITHUB_CHECK_NAME` to one exact verdict-publisher
+check name. Exclusions are reported as `excluded_self=N`; if exclusion leaves no
+independent CI, status is `self-only` and the gate fails closed. GitLab uses its
+aggregate pipeline status and does not support this exclusion.
 
 ### GitLab
 

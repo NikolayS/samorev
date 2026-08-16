@@ -92,7 +92,7 @@ export async function fetchReviewSummary(
   }
 
   const diff = summarizeDiff(fetched.diff);
-  const ci = summarizeCi(reference.provider, fetched.ci);
+  const ci = summarizeCi(reference.provider, fetched.ci, process.env.SAMOREV_IGNORED_GITHUB_CHECK_NAME);
   const title = String(fetched.metadata.title ?? fetched.metadata.source_branch ?? "(untitled)");
   const state = String(fetched.metadata.state ?? fetched.metadata.merge_status ?? "unknown");
   const draft = metadataDraft(reference.provider, fetched.metadata);
@@ -606,13 +606,15 @@ function countJsonItems(value: unknown): number {
   return 0;
 }
 
-function summarizeCi(provider: Provider, ci: unknown): { status: string; summary: string } {
-  return provider === "github" ? summarizeGitHubCi(ci) : summarizeGitLabCi(ci);
+function summarizeCi(provider: Provider, ci: unknown, ignoredGitHubCheckName?: string): { status: string; summary: string } {
+  return provider === "github" ? summarizeGitHubCi(ci, ignoredGitHubCheckName) : summarizeGitLabCi(ci);
 }
 
-function summarizeGitHubCi(ci: unknown): { status: string; summary: string } {
+export function summarizeGitHubCi(ci: unknown, ignoredCheckName?: string): { status: string; summary: string } {
   const checkRuns = isRecord(ci) && Array.isArray(ci.check_runs) ? ci.check_runs : [];
   const counts = { success: 0, failure: 0, pending: 0, other: 0 };
+  let excludedSelf = 0;
+  const exactIgnoredName = ignoredCheckName?.trim();
 
   for (const run of checkRuns) {
     if (!isRecord(run)) {
@@ -623,7 +625,8 @@ function summarizeGitHubCi(ci: unknown): { status: string; summary: string } {
     // running. Counting that self-check makes the reviewer wait on itself and
     // creates an impossible gate cycle. The fresh review replaces that verdict,
     // so only independent CI belongs in the pre-review pipeline gate.
-    if (/samorev/i.test(String(run.name ?? ""))) {
+    if (exactIgnoredName && String(run.name ?? "") === exactIgnoredName) {
+      excludedSelf += 1;
       continue;
     }
     const conclusion = run.conclusion;
@@ -646,12 +649,14 @@ function summarizeGitHubCi(ci: unknown): { status: string; summary: string } {
       ? "pending"
       : total && counts.success === total
         ? "success"
-        : total === 0
+        : total === 0 && checkRuns.length > 0
+          ? "self-only"
+          : total === 0
           ? "none"
           : "unknown";
   return {
     status,
-    summary: `total=${total} success=${counts.success} failure=${counts.failure} pending=${counts.pending} other=${counts.other}`,
+    summary: `total=${total} success=${counts.success} failure=${counts.failure} pending=${counts.pending} other=${counts.other}${excludedSelf ? ` excluded_self=${excludedSelf}` : ""}`,
   };
 }
 
