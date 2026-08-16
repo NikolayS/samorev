@@ -342,7 +342,7 @@ fi
 | `success` | Include green checkmark in report, show coverage % |
 | `failure` | **BLOCKING** - GitHub CI failed; include failed job names and error summary |
 | `failed` | **BLOCKING** - GitLab CI failed |
-| `self-only` | **BLOCKING** - No independent CI remained after excluding trusted pending publisher checks |
+| `self-only` | **BLOCKING** - No independent CI remained after excluding trusted non-failing publisher checks |
 | `fetch-error` | **BLOCKING** - CI could not be fetched; no verdict is trustworthy |
 | `unknown` | **BLOCKING** - CI payload was unusable |
 | `none` | **BLOCKING** - No independent CI was reported yet |
@@ -375,7 +375,7 @@ Where STATUS_EMOJI is:
 
 ```markdown
 **HIGH** `CI/Pipeline` - Pipeline status is self-only
-> Only explicitly trusted pending samorev publisher checks remained; no independent CI was evaluated.
+> Only explicitly trusted non-failing samorev publisher checks remained; no independent CI was evaluated.
 > **Fix:** Run at least one independent CI check successfully before reviewing.
 ```
 

@@ -65,6 +65,28 @@ def test_installer_accepts_checkout_at_default_install_root(tmp_path: Path):
     assert command_path.resolve() == checkout / ".claude" / "commands" / "review-mr.md"
 
 
+def test_installer_canonicalizes_symlinked_checkout_parent(tmp_path: Path):
+    home = tmp_path / "home"
+    physical_parent = tmp_path / "physical"
+    logical_parent = tmp_path / "logical"
+    checkout = physical_parent / "samorev"
+    physical_parent.mkdir()
+    logical_parent.symlink_to(physical_parent, target_is_directory=True)
+    shutil.copytree(ROOT, checkout, symlinks=True, ignore=shutil.ignore_patterns("node_modules", ".git"))
+
+    env = {**os.environ, "HOME": str(home), "SAMOREV_INSTALL_ROOT": str(home / ".claude" / "samorev")}
+    first = subprocess.run(
+        ["bash", "scripts/install-claude-command.sh"], cwd=logical_parent / "samorev", env=env, capture_output=True, text=True
+    )
+    second = subprocess.run(
+        ["bash", "scripts/install-claude-command.sh"], cwd=logical_parent / "samorev", env=env, capture_output=True, text=True
+    )
+
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0, second.stderr
+    assert "/review-mr already installed" in second.stdout
+
+
 def test_installed_command_finds_helper_from_arbitrary_repo(tmp_path: Path):
     home = tmp_path / "home"
     installed_root = home / ".claude" / "samorev"
@@ -133,6 +155,22 @@ def test_installer_rejects_unrelated_occupied_install_root(tmp_path: Path):
     assert result.returncode != 0
     assert "occupied by a different checkout" in result.stderr
     assert (occupied / "owner.txt").read_text(encoding="utf-8") == "unrelated\n"
+    assert not (home / ".claude" / "commands" / "review-mr.md").exists()
+
+
+def test_installer_rejects_dangling_install_root_with_actionable_error(tmp_path: Path):
+    home = tmp_path / "home"
+    install_root = home / ".claude" / "samorev"
+    install_root.parent.mkdir(parents=True)
+    install_root.symlink_to(tmp_path / "missing-checkout", target_is_directory=True)
+
+    result = subprocess.run(
+        ["bash", "scripts/install-claude-command.sh"], cwd=ROOT,
+        env={**os.environ, "HOME": str(home)}, capture_output=True, text=True,
+    )
+
+    assert result.returncode != 0
+    assert "cannot resolve install root" in result.stderr
     assert not (home / ".claude" / "commands" / "review-mr.md").exists()
 
 

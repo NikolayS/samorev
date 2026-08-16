@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 source_command="$repo_root/.claude/commands/review-mr.md"
 target_dir="${CLAUDE_COMMANDS_DIR:-$HOME/.claude/commands}"
 target_command="$target_dir/review-mr.md"
@@ -29,7 +29,7 @@ elif [[ -e "$target_command" ]]; then
   exit 1
 fi
 
-if [[ -e "$install_root" ]]; then
+if [[ -e "$install_root" || -L "$install_root" ]]; then
   resolved_install_root="$(cd "$install_root" 2>/dev/null && pwd -P)" || {
     echo "Error: cannot resolve install root $install_root" >&2
     exit 1

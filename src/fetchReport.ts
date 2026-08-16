@@ -734,7 +734,7 @@ export function reviewGateFindings(ciStatus: string, draft: boolean): GateFindin
       severity: "HIGH",
       subject: "CI/Pipeline",
       title: "Pipeline status is self-only",
-      detail: "Only explicitly trusted pending samorev publisher checks remained; no independent CI was evaluated.",
+      detail: "Only explicitly trusted non-failing samorev publisher checks remained; no independent CI was evaluated.",
       fix: "Run at least one independent CI check successfully before reviewing.",
     });
   } else if (ciStatus !== "success") {

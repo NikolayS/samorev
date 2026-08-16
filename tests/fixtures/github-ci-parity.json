@@ -6,6 +6,24 @@
     "excluded_self": 0
   },
   {
+    "name": "slurped_pages_merge_failure",
+    "payload": [{"check_runs": [{"status": "completed", "conclusion": "success"}]}, {"check_runs": [{"status": "completed", "conclusion": "failure"}]}],
+    "status": "failure",
+    "excluded_self": 0
+  },
+  {
+    "name": "empty_slurped_pages_are_none",
+    "payload": [],
+    "status": "none",
+    "excluded_self": 0
+  },
+  {
+    "name": "invalid_top_level_payload_is_unknown",
+    "payload": "not-a-check-run-object",
+    "status": "unknown",
+    "excluded_self": 0
+  },
+  {
     "name": "all_skipped_is_none",
     "payload": {"check_runs": [{"status": "completed", "conclusion": "skipped"}, {"status": "completed", "conclusion": "neutral"}]},
     "status": "none",

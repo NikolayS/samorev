@@ -118,7 +118,7 @@ one per line:
 | `diff_lines` / `diff_added` / `diff_removed` / `diff_bytes` | diff size |
 | `comments_count` / `commits_count` | counts |
 | `ci_status` | normalized CI status used by the gate; `self-only` means configured non-failing GitHub publisher checks were excluded and no independent CI remained, so the gate fails closed |
-| `ci_summary` | per-bucket evaluated-CI detail; `success` includes non-blocking success/skipped/neutral conclusions, while `ci_status` remains authoritative and requires at least one genuine success; may end with `excluded_self=N`, and then `total` excludes that explicitly trusted pending check run |
+| `ci_summary` | per-bucket evaluated-CI detail; `success` includes non-blocking success/skipped/neutral conclusions, while `ci_status` remains authoritative and requires at least one genuine success; may end with `excluded_self=N`, and then `total` excludes that explicitly trusted non-failing publisher check run |
 | `prompt` | path to the review prompt |
 | `blocking` | echoes the `--blocking` flag |
 | `posted_by` | `local`, `gh`, or `glab` |
@@ -150,6 +150,8 @@ Robustness notes:
 - With `--blocking`, PASS exits `0` and a completed FAIL verdict exits `1`.
   Exit `1` can also mean fetch/auth/posting failure; use the body and metadata
   to distinguish a `### BLOCKING ISSUES` report from an incomplete run.
-- `live_posting=blocked` (with a non-zero exit) means posting was requested but
-  provider auth failed — re-auth `gh`/`glab` and retry.
+- `live_posting=blocked` (with a non-zero exit) means the requested comment was
+  not posted. Check stderr: `Provider posting blocked` indicates auth failure;
+  `Provider posting failed` indicates a post-time permission, rate-limit,
+  provider, or network failure.
 - Treat `UNKNOWN` as a hard failure (fail closed) rather than assuming PASS.
