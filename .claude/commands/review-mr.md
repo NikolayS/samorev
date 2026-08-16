@@ -95,8 +95,7 @@ REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
 PLAN_SCRIPT=""
 for candidate in \
   "${REV_ROOT:-}/lib/provider_planning.py" \
-  "$HOME/.claude/samorev/lib/provider_planning.py" \
-  "$HOME/.claude/rev/lib/provider_planning.py"; do
+  "$HOME/.claude/samorev/lib/provider_planning.py"; do
   if [ -f "$candidate" ]; then
     PLAN_SCRIPT="$candidate"
     break
@@ -459,7 +458,10 @@ import os
 import sys
 
 repo_root = os.environ.get("REPO_ROOT", ".")
-sys.path.insert(0, os.path.join(os.environ["SAMOREV_ROOT"], "lib"))
+samorev_root = os.environ.get("SAMOREV_ROOT", "")
+if not samorev_root:
+    raise SystemExit("Error: SAMOREV_ROOT is missing; reinstall /review-mr from a complete samorev checkout")
+sys.path.insert(0, os.path.join(samorev_root, "lib"))
 
 from compliance import render_compliance_report
 

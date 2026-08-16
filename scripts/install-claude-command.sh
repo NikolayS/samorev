@@ -19,15 +19,16 @@ fi
 
 mkdir -p "$target_dir"
 
+command_already_installed=0
 if [[ -L "$target_command" ]]; then
-  current_target="$(readlink "$target_command")"
+  current_target="$(readlink -f "$target_command" 2>/dev/null || true)"
   if [[ "$current_target" == "$source_command" ]]; then
-    echo "/review-mr already installed at $target_command"
-    exit 0
+    command_already_installed=1
+  else
+    echo "Error: $target_command already exists and points to $(readlink "$target_command")" >&2
+    echo "Remove it first if you want to replace it with samorev." >&2
+    exit 1
   fi
-  echo "Error: $target_command already exists and points to $current_target" >&2
-  echo "Remove it first if you want to replace it with samorev." >&2
-  exit 1
 elif [[ -e "$target_command" ]]; then
   echo "Error: $target_command already exists" >&2
   echo "Remove or back it up before installing samorev's /review-mr command." >&2
@@ -48,6 +49,9 @@ else
   ln -s "$repo_root" "$install_root"
 fi
 
-ln -s "$source_command" "$target_command"
-
-echo "Installed /review-mr at $target_command"
+if [[ "$command_already_installed" -eq 1 ]]; then
+  echo "/review-mr already installed at $target_command; trusted helper root verified"
+else
+  ln -s "$source_command" "$target_command"
+  echo "Installed /review-mr at $target_command"
+fi

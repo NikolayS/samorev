@@ -130,6 +130,7 @@ Only relevant if the bot drives `/review-mr` inside Claude Code:
 | `GITLAB_HOST` | `lib/review_memory.py` | Override GitLab host (default `gitlab.com`). |
 | `REPO_ROOT` | `.claude/commands/review-mr.md` | Repository-under-review root for project data and optional rules; never an executable-helper source. |
 | `REV_ROOT` | `.claude/commands/review-mr.md` | Explicit trusted samorev checkout containing executable helpers. |
+| `SAMOREV_ROOT` | `.claude/commands/review-mr.md` | Derived in Step 1 from the resolved trusted planning helper; points at the complete checkout used for `lib/` and `scripts/`. |
 | `SAMOREV_INSTALL_ROOT` | `scripts/install-claude-command.sh` | Override the trusted checkout link (default `$HOME/.claude/samorev`). |
 | `SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS` | `scripts/summarize-github-ci.sh` | Trusted current publisher check IDs; shared with Surface A. |
 | `SAMOREV_IGNORED_GITHUB_CHECK_NAME` | `scripts/summarize-github-ci.sh` | Exact trusted publisher name; shared with Surface A. |

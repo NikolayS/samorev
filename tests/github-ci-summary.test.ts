@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { formatCiBadge, reviewGateFindings, summarizeGitHubCi, summarizeGitLabCi } from "../src/fetchReport";
+import { formatCiBadge, reviewGateFindings, summarizeGitHubCi, summarizeGitLabCi, TRANSIENT_CI_STATUSES } from "../src/fetchReport";
 import { parseGitHubSelfCheckEnv } from "../src/cli";
 
 const publisher = { id: 303, name: "base-controlled samorev publisher" };
@@ -144,6 +144,13 @@ describe("GitHub CI self-check exclusion", () => {
 });
 
 describe("GitLab CI normalization", () => {
+  test("keeps every transient status HIGH with a PENDING badge", () => {
+    for (const status of TRANSIENT_CI_STATUSES) {
+      expect(reviewGateFindings(status, false)[0]?.severity, status).toBe("HIGH");
+      expect(formatCiBadge(status), status).toBe("PENDING");
+    }
+  });
+
   test("uses the legacy pipeline object when head_pipeline is absent", () => {
     expect(summarizeGitLabCi({ pipeline: { status: "success" } })).toEqual({
       status: "success",

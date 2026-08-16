@@ -19,9 +19,12 @@ The same report is what gets posted to the PR/MR (unless `--no-comment`).
 
 | Pipeline | Coverage |
 |----------|----------|
-| <PASS|PENDING|FAIL|<raw status>> | Not reported |
+| <PASS|PENDING|FAIL> | Not reported |
 
 ---
+
+Statuses outside the documented success and transient sets render the `FAIL`
+badge; raw provider statuses are preserved only in findings and metadata.
 
 <EITHER the BLOCKING block OR the PASS block — see below>
 

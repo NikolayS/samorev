@@ -335,10 +335,15 @@ describe("bun samorev CLI", () => {
         "--no-comment",
         "--blocking",
         "--fetch",
-      ]),
+      ], {
+        SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS: "303",
+        SAMOREV_IGNORED_GITHUB_CHECK_NAME: "base-controlled samorev publisher",
+        SAMOREV_IGNORED_GITHUB_CHECK_APP_ID: "15368",
+      }),
     );
 
     expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("GitHub self-check exclusion is ignored for GitLab reviews");
     expect(result.stdout).toContain("**HIGH** `CI/Pipeline` - Pipeline status is none");
     expect(expectMetadataDetails(result.stdout)).toContain("ci_status=none");
   });

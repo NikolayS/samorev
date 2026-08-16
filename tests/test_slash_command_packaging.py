@@ -38,6 +38,22 @@ def test_installer_links_slash_command_from_clean_checkout(tmp_path: Path):
     assert "Installed /review-mr" in result.stdout
 
 
+def test_existing_command_link_still_provisions_missing_helper_root(tmp_path: Path):
+    home = tmp_path / "home"
+    command_path = home / ".claude" / "commands" / "review-mr.md"
+    command_path.parent.mkdir(parents=True)
+    command_path.symlink_to(ROOT / ".claude" / "commands" / "review-mr.md")
+
+    result = subprocess.run(
+        ["bash", "scripts/install-claude-command.sh"], cwd=ROOT,
+        env={**os.environ, "HOME": str(home)}, capture_output=True, text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (home / ".claude" / "samorev").is_symlink()
+    assert "trusted helper root verified" in result.stdout
+
+
 def test_installer_accepts_checkout_at_default_install_root(tmp_path: Path):
     home = tmp_path / "home"
     checkout = home / ".claude" / "samorev"
@@ -202,7 +218,7 @@ def test_slash_command_delegates_to_provider_planning_core():
     assert '"$PWD/rev/lib/provider_planning.py"' not in command
     assert 'python3 "$REPO_ROOT/lib/' not in command
     assert 'python3 "$SAMOREV_ROOT/lib/review_memory.py"' in command
-    assert 'os.path.join(os.environ["SAMOREV_ROOT"], "lib")' in command
+    assert 'os.path.join(samorev_root, "lib")' in command
     assert 'if [ "$REVIEW_PROVIDER" = "github" ]; then' in command
     assert "$METADATA_COMMAND" in command
     assert "$DIFF_COMMAND" in command

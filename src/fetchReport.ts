@@ -718,7 +718,7 @@ type GateFinding = {
 
 export function reviewGateFindings(ciStatus: string, draft: boolean): GateFinding[] {
   const findings: GateFinding[] = [];
-  const transient = ["pending", "running", "created", "preparing", "scheduled", "waiting_for_resource"].includes(ciStatus);
+  const transient = TRANSIENT_CI_STATUSES.includes(ciStatus);
   if (draft) {
     findings.push({
       area: "Metadata",
@@ -902,11 +902,13 @@ export function formatCiBadge(status: string): string {
   if (["success", "passed"].includes(normalized)) {
     return "PASS";
   }
-  if (["pending", "running", "created", "preparing", "scheduled", "waiting_for_resource"].includes(normalized)) {
+  if (TRANSIENT_CI_STATUSES.includes(normalized)) {
     return "PENDING";
   }
   return "FAIL";
 }
+
+export const TRANSIENT_CI_STATUSES: readonly string[] = ["pending", "running", "created", "preparing", "scheduled", "waiting_for_resource"];
 
 function metadataAuthor(metadata: Record<string, unknown>): string {
   const author = metadata.author;

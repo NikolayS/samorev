@@ -152,6 +152,10 @@ To update:
 cd ~/.claude/samorev && git pull
 ```
 
+Legacy `~/.claude/rev` installations are no longer executable-helper roots.
+Remove that old link or checkout and run the installer from a current complete
+checkout to provision `~/.claude/samorev`.
+
 ### Project-local Installation
 
 If you prefer to install samorev as part of a specific project:
