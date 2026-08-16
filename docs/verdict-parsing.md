@@ -95,7 +95,9 @@ Gate findings (from `reviewGateFindings()`):
 
 For GitHub check conclusions, `success`, `skipped`, and `neutral` are
 non-blocking; `failure`, `cancelled`, `timed_out`, `action_required`, and
-`stale` are failures. The normalized gate status is `failure` (not `failed`).
+`stale` are failures. At least one check must conclude `success`; an all-skipped
+or all-neutral set normalizes to `none`. The normalized failure status is
+`failure` (not `failed`). GitLab MRs with no pipeline also normalize to `none`.
 
 ---
 

@@ -49,9 +49,11 @@ elif [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" 
     --arg app "$publisher_app_id" '
     if has("check_runs") and (.check_runs | type) == "array" then
       .check_runs = [.check_runs[] | . as $run |
-        select((($trusted_ids | index($run.id | tostring)) != null and
-          $run.name == $name and ($run.app.id | tostring) == $app and
-          $run.status != "completed" and $run.conclusion == null) | not)]
+        if type == "object" then
+          select((($trusted_ids | index($run.id | tostring)) != null and
+            $run.name == $name and ($run.app.id | tostring) == $app and
+            $run.status != "completed" and $run.conclusion == null) | not)
+        else . end]
     else . end
   ' <<<"$original_ci" 2>/dev/null); then
     filtered_ci='{"samorev_fetch_error":true}'
@@ -77,7 +79,8 @@ else
       elif any($runs[]; type == "object" and ((.conclusion // "") as $conclusion | ["failure", "timed_out", "cancelled", "action_required", "stale"] | index($conclusion))) then "failure"
       elif any($runs[]; type == "object" and ((.conclusion // "") as $conclusion | (["success", "skipped", "neutral"] | index($conclusion)) == null) and ((.status // "") != "completed" or .conclusion == null)) then "pending"
       elif any($runs[]; type != "object") then "unknown"
-      elif all($runs[]; (.conclusion // "") as $conclusion | ["success", "skipped", "neutral"] | index($conclusion)) then "success"
+      elif all($runs[]; (.conclusion // "") as $conclusion | ["success", "skipped", "neutral"] | index($conclusion)) and any($runs[]; .conclusion == "success") then "success"
+      elif all($runs[]; (.conclusion // "") as $conclusion | ["success", "skipped", "neutral"] | index($conclusion)) then "none"
       else "unknown" end
     end
   ' <<<"$filtered_ci")

@@ -327,9 +327,10 @@ Verdict logic for a bot:
   run `gh auth status` / `glab auth status` and re-auth.
 - **Invalid JSON from provider** → `Error: <tool> returned invalid JSON ...`
   (exit 1); usually a `gh`/`glab` auth or rate-limit problem.
-- **GitHub reports zero check runs** → `ci_status=none` is a HIGH gate finding;
+- **GitHub reports zero check runs, or GitHub/GitLab has no successful
+  independent pipeline** → `ci_status=none` is a HIGH gate finding;
   `--blocking` exits 1. This is intentionally fail-closed and is a breaking
-  change for repositories that previously reviewed PRs without CI.
+  change for repositories that previously reviewed changes without CI.
 
 ---
 

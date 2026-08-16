@@ -628,6 +628,7 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
   }
   const checkRuns = pages.flatMap((page) => (page as Record<string, unknown>).check_runs as unknown[]);
   const counts = { success: 0, failure: 0, pending: 0, other: 0 };
+  let genuineSuccess = 0;
   let excludedSelf = 0;
   const trustedIds = new Set(githubSelfCheck?.runIds.filter((id) => /^\d+$/.test(id)) ?? []);
   const trustedName = githubSelfCheck?.name.trim() ?? "";
@@ -653,6 +654,7 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
     const status = run.status;
     if (["success", "skipped", "neutral"].includes(String(conclusion))) {
       counts.success += 1;
+      if (conclusion === "success") genuineSuccess += 1;
     } else if (["failure", "cancelled", "timed_out", "action_required", "stale"].includes(String(conclusion))) {
       counts.failure += 1;
     } else if (status !== "completed" || conclusion == null) {
@@ -667,8 +669,10 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
     ? "failure"
     : counts.pending
       ? "pending"
-      : total && counts.success === total
+      : total && counts.success === total && genuineSuccess > 0
         ? "success"
+        : total && counts.success === total
+          ? "none"
         : total === 0 && checkRuns.length > 0
           ? "self-only"
           : total === 0
@@ -688,7 +692,9 @@ function summarizeGitLabCi(ci: unknown): { status: string; summary: string } {
   const pipeline = ci.head_pipeline;
   const status = isRecord(pipeline)
     ? String(pipeline.status ?? "unknown")
-    : String(ci.pipeline_status ?? ci.state ?? "unknown");
+    : "pipeline_status" in ci
+    ? String(ci.pipeline_status ?? "none")
+    : "none";
   return { status, summary: `pipeline_status=${status}` };
 }
 

@@ -267,6 +267,7 @@ This ensures we:
 
 ```bash
 # Get CI/pipeline status using the provider-specific CI operation.
+EXCLUDED_SELF=0
 if [ "$REVIEW_PROVIDER" = "github" ]; then
   if ! CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null); then
     CI_JSON='{"samorev_fetch_error":true}'
@@ -345,7 +346,7 @@ fi
 **Coverage:** {COVERAGE}%
 ```
 
-When `EXCLUDED_SELF` is greater than zero, add this visible line immediately
+For GitHub reviews, when `EXCLUDED_SELF` is greater than zero, add this visible line immediately
 below the header: `> Excluded {EXCLUDED_SELF} explicitly trusted pending
 samorev publisher check run(s) from the independent-CI gate.`
 
