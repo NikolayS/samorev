@@ -171,10 +171,11 @@ export function parseGitHubSelfCheckEnv(
   const configured = rawIds.length > 0 || Boolean(name) || Boolean(appId);
   if (!configured) return undefined;
   if (runIds.length !== rawIds.length) warn("Ignoring non-numeric GitHub self-check run IDs");
-  if (runIds.length === 0 || !name || !/^\d+$/.test(appId)) {
+  if (!name || !/^\d+$/.test(appId)) {
     warn("Warning: incomplete or invalid GitHub self-check exclusion configuration; run IDs, exact name, and numeric app ID are all required; excluding nothing");
-    return undefined;
+    return { runIds, name, appId, invalid: true };
   }
+  if (runIds.length === 0) warn("Warning: no valid GitHub self-check run IDs; excluding no runs while retaining publisher identity");
   return { runIds, name, appId };
 }
 

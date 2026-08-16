@@ -48,9 +48,9 @@ def test_matches_shared_shell_typescript_fixture_table():
         env = {}
         if self_check:
             env = {
-                "SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS": ",".join(self_check["run_ids"]),
-                "SAMOREV_IGNORED_GITHUB_CHECK_NAME": self_check["name"],
-                "SAMOREV_IGNORED_GITHUB_CHECK_APP_ID": self_check["app_id"],
+                "SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS": ",".join(self_check.get("run_ids", [])),
+                "SAMOREV_IGNORED_GITHUB_CHECK_NAME": self_check.get("name", ""),
+                "SAMOREV_IGNORED_GITHUB_CHECK_APP_ID": self_check.get("app_id", ""),
             }
         summary, _ = summarize(fixture["payload"], **env)
         assert summary["status"] == fixture["status"], fixture["name"]
@@ -150,7 +150,7 @@ def test_partial_configuration_warns_and_excludes_nothing():
         {"check_runs": [{"id": 303, "status": "in_progress", "conclusion": None}]},
         SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="303",
     )
-    assert summary["status"] == "pending"
+    assert summary["status"] == "unknown"
     assert "incomplete or invalid GitHub self-check" in stderr
 
 

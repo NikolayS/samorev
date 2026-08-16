@@ -30,6 +30,7 @@ if [[ "$trusted_id_count" -ne "$raw_id_count" ]]; then
   echo "Ignoring non-numeric GitHub self-check run IDs" >&2
 fi
 configured=0
+invalid_config=0
 ids_configured=""
 if [[ "$raw_id_count" -gt 0 ]]; then
   ids_configured="configured"
@@ -63,13 +64,22 @@ if [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" =~
   fi
 elif [[ "$configured" -gt 0 ]]; then
   echo "Warning: incomplete or invalid GitHub self-check exclusion configuration; run IDs, exact name, and numeric app ID are all required; excluding nothing" >&2
+  if [[ -z "$publisher_name" || ! "$publisher_app_id" =~ ^[0-9]+$ ]]; then
+    invalid_config=1
+  fi
+fi
+
+if [[ "$configured" -gt 0 && "$trusted_id_count" -eq 0 && -n "$publisher_name" && "$publisher_app_id" =~ ^[0-9]+$ ]]; then
+  echo "Warning: no valid GitHub self-check run IDs; excluding no runs while retaining publisher identity" >&2
 fi
 
 original_count=$(jq -r 'if has("check_runs") and (.check_runs | type) == "array" then (.check_runs | length) else 0 end' <<<"$original_ci")
 filtered_count=$(jq -r 'if has("check_runs") and (.check_runs | type) == "array" then (.check_runs | length) else 0 end' <<<"$filtered_ci")
 excluded_self=$((original_count - filtered_count))
 
-if [[ $(jq -r '.samorev_fetch_error == true' <<<"$filtered_ci") == "true" ]]; then
+if [[ "$invalid_config" -eq 1 ]]; then
+  pipeline_status="unknown"
+elif [[ $(jq -r '.samorev_fetch_error == true' <<<"$filtered_ci") == "true" ]]; then
   excluded_self=0
   pipeline_status="fetch-error"
 elif [[ "$excluded_self" -gt 0 && "$filtered_count" -eq 0 ]]; then
@@ -84,7 +94,7 @@ else
       elif any($runs[]; type == "object" and ((.conclusion // "") as $conclusion | (["success", "skipped", "neutral"] | index($conclusion)) == null) and ((.status // "") != "completed" or .conclusion == null)) then "pending"
       elif any($runs[]; type != "object") then "unknown"
       elif all($runs[]; (.conclusion // "") as $conclusion | ["success", "skipped", "neutral"] | index($conclusion)) and any($runs[];
-        .conclusion == "success" and (((.name // "") == $name and (.app | type) == "object" and ((.app.id // "") | tostring) == $app) | not)) then "success"
+        .conclusion == "success" and (($name != "" and $app != "" and (.name // "") == $name and (.app | type) == "object" and ((.app.id // "") | tostring) == $app) | not)) then "success"
       elif all($runs[]; (.conclusion // "") as $conclusion | ["success", "skipped", "neutral"] | index($conclusion)) then "none"
       else "unknown" end
     end

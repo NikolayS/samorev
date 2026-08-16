@@ -8,7 +8,7 @@ const trusted = { runIds: ["303"], name: publisher.name, appId: "15368" };
 const parityCases = JSON.parse(readFileSync(new URL("./fixtures/github-ci-parity.json", import.meta.url), "utf8")) as Array<{
   name: string;
   payload: unknown;
-  self_check?: { run_ids: string[]; name: string; app_id: string };
+  self_check?: { run_ids?: string[]; name?: string; app_id?: string };
   status: string;
   excluded_self: number;
 }>;
@@ -16,9 +16,11 @@ const parityCases = JSON.parse(readFileSync(new URL("./fixtures/github-ci-parity
 describe("GitHub CI self-check exclusion", () => {
   test("matches the shared shell/TypeScript fixture table", () => {
     for (const fixture of parityCases) {
-      const selfCheck = fixture.self_check
-        ? { runIds: fixture.self_check.run_ids, name: fixture.self_check.name, appId: fixture.self_check.app_id }
-        : undefined;
+      const selfCheck = fixture.self_check ? parseGitHubSelfCheckEnv({
+        SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS: fixture.self_check.run_ids?.join(","),
+        SAMOREV_IGNORED_GITHUB_CHECK_NAME: fixture.self_check.name,
+        SAMOREV_IGNORED_GITHUB_CHECK_APP_ID: fixture.self_check.app_id,
+      }, () => {}) : undefined;
       const summary = summarizeGitHubCi(fixture.payload, selfCheck);
       expect(summary.status, fixture.name).toBe(fixture.status);
       expect(summary.excludedSelf, fixture.name).toBe(fixture.excluded_self);
@@ -90,7 +92,9 @@ describe("GitHub CI self-check exclusion", () => {
       SAMOREV_IGNORED_GITHUB_CHECK_APP_ID: "15368",
     }, (message) => warnings.push(message))).toEqual({ runIds: ["101", "303"], name: publisher.name, appId: "15368" });
     expect(warnings).toEqual(["Ignoring non-numeric GitHub self-check run IDs"]);
-    expect(parseGitHubSelfCheckEnv({ SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS: "303" }, (message) => warnings.push(message))).toBeUndefined();
+    expect(parseGitHubSelfCheckEnv({ SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS: "303" }, (message) => warnings.push(message))).toEqual({
+      runIds: ["303"], name: "", appId: "", invalid: true,
+    });
     expect(warnings.at(-1)).toContain("incomplete or invalid GitHub self-check");
   });
 

@@ -288,9 +288,11 @@ run: |
   bun run samorev review "$PR_URL" --blocking --fetch
 ```
 
-A stale, malformed, or mismatched identity excludes nothing and leaves the
-publisher pending, so configuration errors fail by self-waiting rather than by
-silently dropping unrelated CI.
+A missing run ID list excludes no runs but retains a valid publisher name/app
+identity, so an earlier successful publisher cannot count as independent CI.
+Malformed name/app configuration reports an unknown CI state. A stale or
+mismatched exact identity excludes nothing and remains blocking. These cases
+fail closed rather than silently dropping unrelated CI.
 
 The freshly resolved Checks API IDs are the security boundary. App `15368`
 identifies GitHub Actions generally—including PR-controlled workflows—and job

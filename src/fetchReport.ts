@@ -37,6 +37,7 @@ export type GitHubSelfCheck = {
   runIds: readonly string[];
   name: string;
   appId: string;
+  invalid?: boolean;
 };
 
 /** Per-area finding counts parsed from LLM output. */
@@ -665,7 +666,9 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
   }
 
   const total = counts.success + counts.failure + counts.pending + counts.other;
-  const status = counts.failure
+  const status = githubSelfCheck?.invalid
+    ? "unknown"
+    : counts.failure
     ? "failure"
     : counts.pending
       ? "pending"
