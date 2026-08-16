@@ -92,7 +92,7 @@ export async function fetchReviewSummary(
   }
 
   const diff = summarizeDiff(fetched.diff);
-  const ci = summarizeCi(reference.provider, fetched.ci, process.env.SAMOREV_IGNORED_GITHUB_CHECK_NAME);
+  const ci = summarizeCi(reference.provider, fetched.ci, process.env.SAMOREV_IGNORED_GITHUB_CHECK_RUN_ID);
   const title = String(fetched.metadata.title ?? fetched.metadata.source_branch ?? "(untitled)");
   const state = String(fetched.metadata.state ?? fetched.metadata.merge_status ?? "unknown");
   const draft = metadataDraft(reference.provider, fetched.metadata);
@@ -606,15 +606,15 @@ function countJsonItems(value: unknown): number {
   return 0;
 }
 
-function summarizeCi(provider: Provider, ci: unknown, ignoredGitHubCheckName?: string): { status: string; summary: string } {
-  return provider === "github" ? summarizeGitHubCi(ci, ignoredGitHubCheckName) : summarizeGitLabCi(ci);
+function summarizeCi(provider: Provider, ci: unknown, ignoredGitHubCheckRunId?: string): { status: string; summary: string } {
+  return provider === "github" ? summarizeGitHubCi(ci, ignoredGitHubCheckRunId) : summarizeGitLabCi(ci);
 }
 
-export function summarizeGitHubCi(ci: unknown, ignoredCheckName?: string): { status: string; summary: string } {
+export function summarizeGitHubCi(ci: unknown, ignoredCheckRunId?: string): { status: string; summary: string } {
   const checkRuns = isRecord(ci) && Array.isArray(ci.check_runs) ? ci.check_runs : [];
   const counts = { success: 0, failure: 0, pending: 0, other: 0 };
   let excludedSelf = 0;
-  const exactIgnoredName = ignoredCheckName?.trim();
+  const exactIgnoredId = ignoredCheckRunId?.trim();
 
   for (const run of checkRuns) {
     if (!isRecord(run)) {
@@ -625,7 +625,7 @@ export function summarizeGitHubCi(ci: unknown, ignoredCheckName?: string): { sta
     // running. Counting that self-check makes the reviewer wait on itself and
     // creates an impossible gate cycle. The fresh review replaces that verdict,
     // so only independent CI belongs in the pre-review pipeline gate.
-    if (exactIgnoredName && String(run.name ?? "") === exactIgnoredName) {
+    if (exactIgnoredId && String(run.id ?? "") === exactIgnoredId && run.status !== "completed" && run.conclusion == null) {
       excludedSelf += 1;
       continue;
     }
@@ -690,7 +690,7 @@ type GateFinding = {
   fix: string;
 };
 
-function reviewGateFindings(ciStatus: string, draft: boolean): GateFinding[] {
+export function reviewGateFindings(ciStatus: string, draft: boolean): GateFinding[] {
   const findings: GateFinding[] = [];
   if (draft) {
     findings.push({

@@ -94,8 +94,9 @@ Fetches:
 - Posting: `gh pr comment <number> --repo <owner>/<repo> --body <summary>`
 
 CI summary buckets: `success`, `failure`, `pending`, `other`. A trusted GitHub
-runner may set `SAMOREV_IGNORED_GITHUB_CHECK_NAME` to one exact verdict-publisher
-check name. Exclusions are reported as `excluded_self=N`; if exclusion leaves no
+runner may set `SAMOREV_IGNORED_GITHUB_CHECK_RUN_ID` to the unforgeable database
+ID of one current pending verdict-publisher check run. Completed runs are never
+excluded. Exclusions are reported as `excluded_self=N`; if exclusion leaves no
 independent CI, status is `self-only` and the gate fails closed. GitLab uses its
 aggregate pipeline status and does not support this exclusion.
 
