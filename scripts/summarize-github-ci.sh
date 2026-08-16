@@ -61,7 +61,7 @@ if [[ "$identity_valid" -eq 1 && "$trusted_id_count" -gt 0 ]]; then
             $run.name == $name and ($run.app | type) == "object" and
             ($run.app.id | tostring) == $app and
             (.conclusion == null or ((.conclusion // "") as $conclusion |
-              ["success", "skipped", "neutral"] | index($conclusion)))) | not)
+              ["success", "skipped", "neutral", "cancelled"] | index($conclusion)))) | not)
         else . end]
     else . end
   ' <<<"$original_ci" 2>/dev/null); then

@@ -640,15 +640,15 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
       counts.other += 1;
       continue;
     }
-    // A trusted samorev publisher is never independent CI. Exclude its pending
-    // or successful run, but preserve a failure-like conclusion as blocking.
+    // A trusted samorev publisher is never independent CI. Exclude its pending,
+    // superseded-cancelled, or successful run, but preserve genuine failures.
     const app = isRecord(run.app) ? run.app : {};
     const conclusion = run.conclusion;
     const status = run.status;
     const publisherIdentity = Boolean(trustedName && trustedAppId
       && String(run.name ?? "") === trustedName && String(app.id ?? "") === trustedAppId);
     const trustedPublisher = trustedIds.has(String(run.id ?? "")) && publisherIdentity;
-    const excludablePublisher = conclusion == null || ["success", "skipped", "neutral"].includes(String(conclusion));
+    const excludablePublisher = conclusion == null || ["success", "skipped", "neutral", "cancelled"].includes(String(conclusion));
     if (trustedPublisher && excludablePublisher) {
       excludedSelf += 1;
       continue;
