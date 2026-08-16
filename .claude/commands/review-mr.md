@@ -266,6 +266,17 @@ This ensures we:
 
 ```bash
 # Get CI/pipeline status using the provider-specific CI operation.
+SAMOREV_ROOT=""
+for candidate in \
+  "${REV_ROOT:-}" \
+  "${SAMOREV_INSTALL_ROOT:-}" \
+  "$HOME/.claude/samorev"; do
+  if [ -f "$candidate/scripts/summarize-github-ci.sh" ]; then
+    SAMOREV_ROOT=$(cd "$candidate" && pwd)
+    break
+  fi
+done
+export SAMOREV_ROOT
 EXCLUDED_SELF=0
 if [ "$REVIEW_PROVIDER" = "github" ]; then
   CI_ERROR_FILE=$(mktemp)
@@ -453,6 +464,17 @@ compliance_mode: iso27001
 Use `lib/compliance.py` as the source of truth:
 
 ```bash
+SAMOREV_ROOT=""
+for candidate in \
+  "${REV_ROOT:-}" \
+  "${SAMOREV_INSTALL_ROOT:-}" \
+  "$HOME/.claude/samorev"; do
+  if [ -f "$candidate/lib/compliance.py" ]; then
+    SAMOREV_ROOT=$(cd "$candidate" && pwd)
+    break
+  fi
+done
+export SAMOREV_ROOT
 COMPLIANCE_REPORT=$(python3 - <<'PY'
 import json
 import os
@@ -775,6 +797,17 @@ The helper outputs a block like:
 Use it to build `PRIOR_CONTEXT`:
 
 ```bash
+SAMOREV_ROOT=""
+for candidate in \
+  "${REV_ROOT:-}" \
+  "${SAMOREV_INSTALL_ROOT:-}" \
+  "$HOME/.claude/samorev"; do
+  if [ -f "$candidate/lib/review_memory.py" ]; then
+    SAMOREV_ROOT=$(cd "$candidate" && pwd)
+    break
+  fi
+done
+export SAMOREV_ROOT
 if [ "$REVIEW_PROVIDER" = "github" ]; then
   PRIOR_CONTEXT=$(eval "$COMMENTS_COMMAND" 2>/dev/null | jq -r '
     def interesting: (.body | test("samorev Code Review Report|REV Code Review Report|samorev-assisted review|REV-assisted review"));
@@ -817,6 +850,17 @@ To load rules:
 # Optional rules can be provided at ./rules/rules
 # The path is relative to the repo root where /review-mr is invoked
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+SAMOREV_ROOT=""
+for candidate in \
+  "${REV_ROOT:-}" \
+  "${SAMOREV_INSTALL_ROOT:-}" \
+  "$HOME/.claude/samorev"; do
+  if [ -f "$candidate/lib/review_memory.py" ]; then
+    SAMOREV_ROOT=$(cd "$candidate" && pwd)
+    break
+  fi
+done
+export SAMOREV_ROOT
 if [ "$REVIEW_PROVIDER" = "github" ]; then
   PRIOR_CONTEXT=$(eval "$COMMENTS_COMMAND" 2>/dev/null | jq -r '
     def interesting: (.body | test("samorev Code Review Report|REV Code Review Report|samorev-assisted review|REV-assisted review"));

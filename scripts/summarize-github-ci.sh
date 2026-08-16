@@ -44,7 +44,12 @@ for value in \
   fi
 done
 
-if [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" =~ ^[0-9]+$ ]]; then
+identity_valid=0
+if [[ -n "$publisher_name" && "$publisher_app_id" =~ ^[0-9]+$ ]]; then
+  identity_valid=1
+fi
+
+if [[ "$identity_valid" -eq 1 && "$trusted_id_count" -gt 0 ]]; then
   if ! filtered_ci=$(jq -c \
     --argjson trusted_ids "$trusted_ids" \
     --arg name "$publisher_name" \
@@ -62,14 +67,12 @@ if [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" =~
   ' <<<"$original_ci" 2>/dev/null); then
     filtered_ci='{"samorev_fetch_error":true}'
   fi
-elif [[ "$configured" -gt 0 ]]; then
+elif [[ "$configured" -gt 0 && "$identity_valid" -eq 0 ]]; then
   echo "Warning: incomplete or invalid GitHub self-check exclusion configuration; run IDs, exact name, and numeric app ID are all required; excluding nothing" >&2
-  if [[ -z "$publisher_name" || ! "$publisher_app_id" =~ ^[0-9]+$ ]]; then
-    invalid_config=1
-  fi
+  invalid_config=1
 fi
 
-if [[ "$configured" -gt 0 && "$trusted_id_count" -eq 0 && -n "$publisher_name" && "$publisher_app_id" =~ ^[0-9]+$ ]]; then
+if [[ "$identity_valid" -eq 1 && "$trusted_id_count" -eq 0 ]]; then
   echo "Warning: no valid GitHub self-check run IDs; excluding no runs while retaining publisher identity" >&2
 fi
 

@@ -93,6 +93,13 @@
     "excluded_self": 0
   },
   {
+    "name": "all_non_numeric_run_ids_retain_publisher_identity",
+    "payload": {"check_runs": [{"id": 303, "name": "base-controlled samorev publisher", "app": {"id": 15368}, "status": "completed", "conclusion": "success"}]},
+    "self_check": {"run_ids": ["abc", "not-an-id"], "name": "base-controlled samorev publisher", "app_id": "15368"},
+    "status": "none",
+    "excluded_self": 0
+  },
+  {
     "name": "empty_is_none",
     "payload": {"check_runs": []},
     "status": "none",

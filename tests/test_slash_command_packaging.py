@@ -15,6 +15,12 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
+def command_step(header: str, next_header: str) -> str:
+    command = read(".claude/commands/review-mr.md")
+    section = command.split(header, 1)[1].split(next_header, 1)[0]
+    return section.split("```bash\n", 1)[1].split("\n```", 1)[0]
+
+
 def test_installer_links_slash_command_from_clean_checkout(tmp_path: Path):
     home = tmp_path / "home"
     env = {**os.environ, "HOME": str(home)}
@@ -156,6 +162,41 @@ def test_nondefault_install_root_is_used_by_step_one(tmp_path: Path):
     )
     assert result.returncode == 0, result.stderr
     assert str(install_root) in result.stdout
+
+
+def test_github_ci_step_executes_summarizer_and_fails_closed(tmp_path: Path):
+    step = command_step("### Step 2.4: CI/pipeline status check", "### Step 2.5: Compliance mode detection")
+    base_env = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("SAMOREV_IGNORED_GITHUB_CHECK_")
+        and key not in {"REV_ROOT", "SAMOREV_INSTALL_ROOT"}
+    }
+    cases = [
+        (
+            "printf '%s' '{\"check_runs\":[{\"id\":1,\"name\":\"unit\",\"status\":\"completed\",\"conclusion\":\"success\"}]}'",
+            {**base_env, "SAMOREV_INSTALL_ROOT": str(ROOT)},
+            "success 0",
+        ),
+        ("false", {**base_env, "SAMOREV_INSTALL_ROOT": str(ROOT)}, "fetch-error 0"),
+        (
+            "printf '%s' '{\"check_runs\":[{\"conclusion\":\"success\"}]}'",
+            {**base_env, "HOME": str(tmp_path)},
+            "fetch-error 0",
+        ),
+    ]
+    for ci_command, env, expected in cases:
+        env = {**env, "CI_COMMAND": ci_command}
+        result = subprocess.run(
+            ["bash", "-c", (
+                "set -euo pipefail\n"
+                "REVIEW_PROVIDER=github\n"
+                + step
+                + "\nprintf '%s %s\\n' \"$PIPELINE_STATUS\" \"$EXCLUDED_SELF\"\n"
+            )],
+            cwd=ROOT, env=env, capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().endswith(expected), result.stdout
 
 
 def test_installer_refuses_to_overwrite_existing_user_command(tmp_path: Path):
