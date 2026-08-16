@@ -92,6 +92,21 @@ describe("GitHub CI self-check exclusion", () => {
     expect(summarizeGitHubCi({ message: "Not Found" }).status).toBe("unknown");
     expect(summarizeGitHubCi([{ check_runs: [] }, { message: "partial failure" }]).status).toBe("unknown");
     expect(summarizeGitHubCi({ check_runs: [] }).status).toBe("none");
+    expect(reviewGateFindings("none", false)).toEqual([
+      expect.objectContaining({ severity: "HIGH", title: "Pipeline status is none" }),
+    ]);
+    expect(formatCiBadge("none")).toBe("FAIL");
+  });
+
+  test("treats skipped and neutral checks as successful and stale as failed", () => {
+    expect(summarizeGitHubCi({ check_runs: [
+      { name: "unit", status: "completed", conclusion: "success" },
+      { name: "docs", status: "completed", conclusion: "skipped" },
+      { name: "optional", status: "completed", conclusion: "neutral" },
+    ] }).status).toBe("success");
+    expect(summarizeGitHubCi({ check_runs: [
+      { name: "old", status: "completed", conclusion: "stale" },
+    ] }).status).toBe("failure");
   });
 
   test("merges all slurped GitHub check-run pages before evaluating CI", () => {

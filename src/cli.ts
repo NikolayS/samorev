@@ -114,8 +114,15 @@ async function review(args: ReviewArgs): Promise<number> {
         livePosting: "posted",
         githubSelfCheck,
       });
-      await postProviderSummary(reference, plan, postedReport);
-      console.log(postedReport);
+      try {
+        await postProviderSummary(reference, plan, postedReport);
+        console.log(postedReport);
+      } catch (error) {
+        if (error instanceof PostingError) {
+          console.log(postedReport.replace("live_posting=posted", "live_posting=blocked"));
+        }
+        throw error;
+      }
       return args.blocking && postedOutcome === "FAIL" ? 1 : 0;
     } catch (error) {
       if (error instanceof FetchError) {

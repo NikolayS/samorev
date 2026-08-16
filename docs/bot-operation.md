@@ -256,15 +256,18 @@ workflow can use a PR-controlled workflow definition for same-repository
 branches. Do not check out or execute PR code in the privileged publisher job.
 In that GitHub Actions step:
 
-```bash
-HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-export SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="$(
-  gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" |
-    jq -sr --arg run_id "$GITHUB_RUN_ID" --arg publisher "base-controlled samorev publisher" \
-      '[.[].check_runs[] | select(.name == $publisher and ((.html_url // "") | contains("/actions/runs/" + $run_id + "/"))) | .id] | unique | join(",")'
-)"
-export SAMOREV_IGNORED_GITHUB_CHECK_NAME="base-controlled samorev publisher"
-export SAMOREV_IGNORED_GITHUB_CHECK_APP_ID="15368"
+```yaml
+env:
+  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+run: |
+  export SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="$(
+    gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" |
+      jq -sr --arg run_id "$GITHUB_RUN_ID" --arg publisher "base-controlled samorev publisher" \
+        '[.[].check_runs[] | select(.name == $publisher and ((.html_url // "") | contains("/actions/runs/" + $run_id + "/"))) | .id] | unique | join(",")'
+  )"
+  export SAMOREV_IGNORED_GITHUB_CHECK_NAME="base-controlled samorev publisher"
+  export SAMOREV_IGNORED_GITHUB_CHECK_APP_ID="15368"
+  bun run samorev review "$PR_URL" --blocking --fetch
 ```
 
 A stale, malformed, or mismatched identity excludes nothing and leaves the

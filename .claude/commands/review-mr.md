@@ -118,6 +118,7 @@ fi
 # Commands that require runtime values use quoted variable expansions such as
 # "${RUN_ID}", so bind those variables before evaluating the command string.
 eval "$PLAN_OUTPUT"
+SAMOREV_ROOT=$(cd "$(dirname "$PLAN_SCRIPT")/.." && pwd)
 ```
 
 ### Step 2: Fetch review data
@@ -270,62 +271,11 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
   if ! CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null); then
     CI_JSON='{"samorev_fetch_error":true}'
   fi
-  if ! NORMALIZED_CI_JSON=$(echo "$CI_JSON" | jq -c '
-    if type == "array" then
-      if all(.[]; type == "object" and has("check_runs") and (.check_runs | type) == "array")
-      then {check_runs: [.[].check_runs[]]}
-      else error("invalid paginated check-runs payload") end
-    elif type == "object" then .
-    else error("invalid check-runs payload") end'); then
-    CI_JSON='{"samorev_fetch_error":true}'
-  else
-    CI_JSON="$NORMALIZED_CI_JSON"
-  fi
-  ORIGINAL_CI_JSON="$CI_JSON"
-  ORIGINAL_RUN_COUNT=$(echo "$CI_JSON" | jq '(.check_runs // []) | length')
-  SELF_CHECK_CONFIGURED=0
-  [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS:-}" ] && SELF_CHECK_CONFIGURED=$((SELF_CHECK_CONFIGURED + 1))
-  [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_NAME:-}" ] && SELF_CHECK_CONFIGURED=$((SELF_CHECK_CONFIGURED + 1))
-  [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_APP_ID:-}" ] && SELF_CHECK_CONFIGURED=$((SELF_CHECK_CONFIGURED + 1))
-  if [ "$SELF_CHECK_CONFIGURED" -gt 0 ] && [ "$SELF_CHECK_CONFIGURED" -lt 3 ]; then
-    echo "Warning: incomplete GitHub self-check exclusion configuration; excluding nothing" >&2
-  elif [ "$SELF_CHECK_CONFIGURED" -eq 3 ]; then
-    CI_JSON=$(echo "$CI_JSON" | jq \
-      --arg ids "$SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS" \
-      --arg name "$SAMOREV_IGNORED_GITHUB_CHECK_NAME" \
-      --arg app "$SAMOREV_IGNORED_GITHUB_CHECK_APP_ID" '
-      ($ids | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(test("^[0-9]+$")))) as $trusted_ids |
-      .check_runs = [(.check_runs // [])[] | . as $run |
-        select((($trusted_ids | index($run.id | tostring)) != null and
-          $run.name == $name and ($run.app.id | tostring) == $app and
-          $run.status != "completed" and $run.conclusion == null) | not)]')
-  fi
-  FILTERED_RUN_COUNT=$(echo "$CI_JSON" | jq '(.check_runs // []) | length')
-  if [ "$ORIGINAL_RUN_COUNT" -gt 0 ] && [ "$FILTERED_RUN_COUNT" -eq 0 ]; then
-    PIPELINE_STATUS="self-only"
-  else
-    PIPELINE_STATUS=$(echo "$CI_JSON" | jq -r '
-      if .samorev_fetch_error == true then "fetch-error"
-      elif (has("check_runs") and (.check_runs | type) == "array") | not then "unknown"
-      else .check_runs as $runs |
-      if ($runs | length) == 0 then "none"
-      elif any($runs[]; (.conclusion // "") == "failure" or (.conclusion // "") == "timed_out" or (.conclusion // "") == "cancelled") then "failed"
-      elif all($runs[]; (.conclusion // "") == "success" or (.conclusion // "") == "skipped" or (.conclusion // "") == "neutral") then "success"
-      elif any($runs[]; (.status // "") == "queued") then "pending"
-      else "running" end end')
-  fi
-  PIPELINE_CONTEXT_JSON="$CI_JSON"
-  if [ "$FILTERED_RUN_COUNT" -eq 0 ]; then
-    PIPELINE_CONTEXT_JSON="$ORIGINAL_CI_JSON"
-  fi
-  PIPELINE_ID=$(echo "$PIPELINE_CONTEXT_JSON" | jq -r '
-    [(.check_runs // [])[] | select((.conclusion // "") == "failure" or (.conclusion // "") == "timed_out" or (.conclusion // "") == "cancelled")] +
-    [(.check_runs // [])[]] |
-    [.[] | .html_url // "" | capture("/actions/runs/(?<id>[0-9]+)")? | .id][0] // empty')
-  PIPELINE_URL=$(echo "$PIPELINE_CONTEXT_JSON" | jq -r '
-    [(.check_runs // [])[] | select((.conclusion // "") == "failure" or (.conclusion // "") == "timed_out" or (.conclusion // "") == "cancelled")] +
-    [(.check_runs // [])[]] |
-    [.[] | .html_url // empty][0] // empty')
+  CI_SUMMARY=$(printf '%s' "$CI_JSON" | bash "$SAMOREV_ROOT/scripts/summarize-github-ci.sh")
+  CI_JSON=$(jq -c '.filtered' <<<"$CI_SUMMARY")
+  PIPELINE_STATUS=$(jq -r '.status' <<<"$CI_SUMMARY")
+  PIPELINE_ID=$(jq -r '.pipeline_id' <<<"$CI_SUMMARY")
+  PIPELINE_URL=$(jq -r '.pipeline_url' <<<"$CI_SUMMARY")
   COVERAGE="N/A"
 else
   MR_JSON=$(eval "$CI_COMMAND")
@@ -373,7 +323,7 @@ fi
 | `self-only` | **BLOCKING** - No independent CI remained after excluding trusted pending publisher checks |
 | `fetch-error` | **BLOCKING** - CI could not be fetched; no verdict is trustworthy |
 | `unknown` | **BLOCKING** - CI payload was unusable |
-| `none` | No checks were explicitly reported; non-blocking for repositories without CI |
+| `none` | **BLOCKING** - No independent CI was reported yet |
 | `running` | Note that CI is still running, review may be preliminary |
 | `pending` | Note that CI hasn't started yet |
 | `canceled` | Note cancellation, may need re-run |
@@ -390,7 +340,7 @@ Where STATUS_EMOJI is:
 - ❌ for failed
 - ❌ for self-only
 - ❌ for fetch-error/unknown
-- ⚪ for none
+- ❌ for none
 - ⏳ for running/pending
 - ⚠️ for canceled
 
@@ -402,7 +352,7 @@ Where STATUS_EMOJI is:
 > **Fix:** Run at least one independent CI check successfully before reviewing.
 ```
 
-**If CI is unknown or fetch-error, add to BLOCKING ISSUES:**
+**If CI is none, unknown, or fetch-error, add to BLOCKING ISSUES:**
 
 ```markdown
 **CRITICAL** `CI/Pipeline` - Pipeline status is {PIPELINE_STATUS}

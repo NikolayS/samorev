@@ -651,9 +651,9 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
     }
     const conclusion = run.conclusion;
     const status = run.status;
-    if (conclusion === "success") {
+    if (["success", "skipped", "neutral"].includes(String(conclusion))) {
       counts.success += 1;
-    } else if (["failure", "cancelled", "timed_out", "action_required"].includes(String(conclusion))) {
+    } else if (["failure", "cancelled", "timed_out", "action_required", "stale"].includes(String(conclusion))) {
       counts.failure += 1;
     } else if (status !== "completed" || conclusion == null) {
       counts.pending += 1;
@@ -732,15 +732,17 @@ export function reviewGateFindings(ciStatus: string, draft: boolean): GateFindin
       detail: "Only explicitly trusted pending samorev publisher checks remained; no independent CI was evaluated.",
       fix: "Run at least one independent CI check successfully before reviewing.",
     });
-  } else if (!["success", "none"].includes(ciStatus)) {
+  } else if (ciStatus !== "success") {
     findings.push({
       area: "CI/Pipeline",
-      severity: ciStatus === "pending" ? "HIGH" : "CRITICAL",
+      severity: ["pending", "none"].includes(ciStatus) ? "HIGH" : "CRITICAL",
       subject: "CI/Pipeline",
       title: `Pipeline status is ${ciStatus}`,
       detail: `Provider CI reported status \`${ciStatus}\`.`,
       fix: ciStatus === "pending"
         ? "Wait for CI to finish and rerun review."
+        : ciStatus === "none"
+        ? "Run at least one independent CI check successfully before reviewing."
         : "Fix failing checks and rerun review.",
     });
   }
@@ -897,7 +899,7 @@ export function formatCiBadge(status: string): string {
   if (["pending", "running"].includes(normalized)) {
     return "PENDING";
   }
-  if (["failure", "failed", "self-only"].includes(normalized)) {
+  if (["failure", "failed", "self-only", "none", "unknown", "fetch-error"].includes(normalized)) {
     return "FAIL";
   }
   return status || "unknown";

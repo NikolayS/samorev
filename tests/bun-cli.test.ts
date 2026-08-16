@@ -165,6 +165,22 @@ describe("bun samorev CLI", () => {
     expect(postedMetadata).toContain("live_posting=posted");
   });
 
+  it("prints a blocked report when provider posting fails", async () => {
+    await writeGitHubFake();
+    const result = await output(
+      await runSamorev([
+        "review",
+        "https://github.com/example-org/example-repo/pull/17",
+        "--fetch",
+      ], { SAMOREV_FAKE_AUTH: "ok", SAMOREV_FAKE_POST: "fail" }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Provider posting failed");
+    expect(result.stdout).toContain("## samorev Code Review Report");
+    expect(expectMetadataDetails(result.stdout)).toContain("live_posting=blocked");
+  });
+
   it("blocks GitHub posting when gh auth is unavailable", async () => {
     const postLog = join(fakeBin, "github-post.txt");
     await writeGitHubFake(postLog);
@@ -569,6 +585,10 @@ if (args.slice(0, 3).join(" ") === "pr view 17") {
     process.exit(1);
   }
 } else if (args.slice(0, 3).join(" ") === "pr comment 17") {
+  if (process.env.SAMOREV_FAKE_POST === "fail") {
+    console.error("synthetic post failure");
+    process.exit(1);
+  }
   const index = args.indexOf("--body");
   const body = args[index + 1] ?? "";
   await Bun.write(${JSON.stringify(postLog ?? join(fakeBin, "unexpected-github-post.txt"))}, body);

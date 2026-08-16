@@ -89,8 +89,12 @@ Gate findings (from `reviewGateFindings()`):
 | Trigger | Area | Severity |
 |---------|------|----------|
 | `draft == true` | Metadata | HIGH |
-| CI status not in {`success`, `none`} and `== pending` | CI/Pipeline | HIGH |
-| CI status not in {`success`, `none`} and any other | CI/Pipeline | CRITICAL |
+| CI status `pending` or `none` | CI/Pipeline | HIGH |
+| CI status other than `success`, `pending`, or `none` | CI/Pipeline | CRITICAL |
+
+For GitHub check conclusions, `success`, `skipped`, and `neutral` are
+non-blocking; `failure`, `cancelled`, `timed_out`, `action_required`, and
+`stale` are failures. The normalized gate status is `failure` (not `failed`).
 
 ---
 
