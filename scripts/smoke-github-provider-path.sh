@@ -37,9 +37,9 @@ JSON
 [{"commit":{"committer":{"date":"2026-05-10T12:10:00Z"}}}]
 JSON
       ;;
-    "api repos/example-org/example-repo/commits/pull/17/head/check-runs --paginate")
+    "api repos/example-org/example-repo/commits/pull/17/head/check-runs --paginate --slurp")
       cat <<'JSON'
-{"check_runs":[{"name":"ci","status":"completed","conclusion":"success","html_url":"https://github.com/example-org/example-repo/actions/runs/12345/jobs/67890"}]}
+[{"check_runs":[{"name":"ci","status":"completed","conclusion":"success","html_url":"https://github.com/example-org/example-repo/actions/runs/12345/jobs/67890"}]}]
 JSON
       ;;
     *)
@@ -60,6 +60,7 @@ DIFF_CONTENT=$(eval "$DIFF_COMMAND")
 COMMENTS_JSON=$(eval "$COMMENTS_COMMAND")
 COMMITS_JSON=$(eval "$COMMITS_COMMAND")
 CI_JSON=$(eval "$CI_COMMAND")
+CI_JSON=$(echo "$CI_JSON" | jq 'if type == "array" then {check_runs: [.[].check_runs[]]} else . end')
 
 PIPELINE_STATUS=$(echo "$CI_JSON" | jq -r '
   (.check_runs // []) as $runs |

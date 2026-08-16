@@ -189,6 +189,22 @@ describe("bun samorev CLI", () => {
     await expect(readFile(postLog, "utf8")).rejects.toThrow();
   });
 
+  it("keeps both auth and fetch diagnostics when blocked-report generation fails", async () => {
+    await writeGitHubFake(undefined, true);
+
+    const result = await output(
+      await runSamorev([
+        "review",
+        "https://github.com/example-org/example-repo/pull/17",
+        "--fetch",
+      ], { SAMOREV_FAKE_AUTH: "missing" }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Provider posting blocked");
+    expect(result.stderr).toContain("returned invalid JSON");
+  });
+
   it("does not invoke provider posting in --no-comment mode", async () => {
     const postLog = join(fakeBin, "github-post.txt");
     await writeGitHubFake(postLog);
@@ -478,6 +494,7 @@ describe("bun samorev CLI", () => {
     expect(reference.projectPath).toBe("example-org/example-repo");
     expect(plan.metadataCommand.join(" ")).toContain("gh pr view 17 --repo example-org/example-repo");
     expect(plan.ciCommand.join(" ")).toContain("repos/example-org/example-repo/commits/pull/17/head/check-runs");
+    expect(plan.ciCommand).toContain("--slurp");
   });
 
   it("rejects invalid references without a traceback", async () => {
@@ -528,13 +545,13 @@ function expectMetadataDetails(report: string): string {
   return match?.[1] ?? "";
 }
 
-async function writeGitHubFake(postLog?: string) {
+async function writeGitHubFake(postLog?: string, invalidMetadata = false) {
   await writeFile(
     join(fakeBin, "gh"),
     `#!/usr/bin/env bun
 const args = Bun.argv.slice(2);
 if (args.slice(0, 3).join(" ") === "pr view 17") {
-  console.log(JSON.stringify({ title: "Demo PR", state: "OPEN", isDraft: false }));
+  console.log(${invalidMetadata ? '"{invalid"' : 'JSON.stringify({ title: "Demo PR", state: "OPEN", isDraft: false })'});
 } else if (args.slice(0, 3).join(" ") === "pr diff 17") {
   Bun.write(Bun.stdout, "diff --git a/app.ts b/app.ts\\n+console.log('demo')\\n-old = true\\n");
 } else if (args.slice(0, 2).join(" ") === "api repos/example-org/example-repo/issues/17/comments") {

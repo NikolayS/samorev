@@ -618,14 +618,15 @@ function summarizeCi(provider: Provider, ci: unknown, githubSelfCheck?: GitHubSe
 }
 
 export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck): { status: string; summary: string; excludedSelf: number } {
-  if (!isRecord(ci) || !Array.isArray(ci.check_runs)) {
+  const pages = Array.isArray(ci) ? ci : [ci];
+  if (!pages.every((page) => isRecord(page) && Array.isArray(page.check_runs))) {
     return {
       status: "unknown",
       summary: "total=0 success=0 failure=0 pending=0 other=0",
       excludedSelf: 0,
     };
   }
-  const checkRuns = ci.check_runs;
+  const checkRuns = pages.flatMap((page) => (page as Record<string, unknown>).check_runs as unknown[]);
   const counts = { success: 0, failure: 0, pending: 0, other: 0 };
   let excludedSelf = 0;
   const trustedIds = new Set(githubSelfCheck?.runIds.filter((id) => /^\d+$/.test(id)) ?? []);

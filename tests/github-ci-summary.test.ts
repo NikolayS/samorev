@@ -92,4 +92,15 @@ describe("GitHub CI self-check exclusion", () => {
     expect(summarizeGitHubCi({ message: "Not Found" }).status).toBe("unknown");
     expect(summarizeGitHubCi({ check_runs: [] }).status).toBe("none");
   });
+
+  test("merges all slurped GitHub check-run pages before evaluating CI", () => {
+    expect(summarizeGitHubCi([
+      { check_runs: [{ id: 101, name: "unit", status: "completed", conclusion: "success" }] },
+      { check_runs: [{ id: 202, name: "lint", status: "completed", conclusion: "failure" }] },
+    ])).toEqual({
+      status: "failure",
+      summary: "total=2 success=1 failure=1 pending=0 other=0",
+      excludedSelf: 0,
+    });
+  });
 });

@@ -250,14 +250,18 @@ counts evaluated independent checks. A self-only set reports
 exclusion does not apply to GitLab's aggregate pipeline status.
 
 Resolve trusted IDs from the current base-controlled publisher run, not by
-accepting a PR-supplied job name or status target. In a GitHub Actions step:
+accepting a PR-supplied job name or status target. This step must run from a
+`pull_request_target` or otherwise base-pinned workflow; a plain `pull_request`
+workflow can use a PR-controlled workflow definition for same-repository
+branches. Do not check out or execute PR code in the privileged publisher job.
+In that GitHub Actions step:
 
 ```bash
 HEAD_SHA="${{ github.event.pull_request.head.sha }}"
 export SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS="$(
   gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" |
-    jq -sr --arg run_id "$GITHUB_RUN_ID" \
-      '[.[].check_runs[] | select((.html_url // "") | contains("/actions/runs/" + $run_id + "/")) | .id] | unique | join(",")'
+    jq -sr --arg run_id "$GITHUB_RUN_ID" --arg publisher "base-controlled samorev publisher" \
+      '[.[].check_runs[] | select(.name == $publisher and ((.html_url // "") | contains("/actions/runs/" + $run_id + "/"))) | .id] | unique | join(",")'
 )"
 export SAMOREV_IGNORED_GITHUB_CHECK_NAME="base-controlled samorev publisher"
 export SAMOREV_IGNORED_GITHUB_CHECK_APP_ID="15368"

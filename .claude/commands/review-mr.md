@@ -267,7 +267,10 @@ This ensures we:
 ```bash
 # Get CI/pipeline status using the provider-specific CI operation.
 if [ "$REVIEW_PROVIDER" = "github" ]; then
-  CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null || echo '{"samorev_fetch_error":true}')
+  if ! CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null); then
+    CI_JSON='{"samorev_fetch_error":true}'
+  fi
+  CI_JSON=$(echo "$CI_JSON" | jq 'if type == "array" then {check_runs: [.[].check_runs[]]} else . end')
   ORIGINAL_CI_JSON="$CI_JSON"
   ORIGINAL_RUN_COUNT=$(echo "$CI_JSON" | jq '(.check_runs // []) | length')
   SELF_CHECK_CONFIGURED=0
@@ -292,7 +295,8 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
     PIPELINE_STATUS="self-only"
   else
     PIPELINE_STATUS=$(echo "$CI_JSON" | jq -r '
-      if (has("check_runs") and (.check_runs | type) == "array") | not then "unknown"
+      if .samorev_fetch_error == true then "fetch-error"
+      elif (has("check_runs") and (.check_runs | type) == "array") | not then "unknown"
       else .check_runs as $runs |
       if ($runs | length) == 0 then "none"
       elif any($runs[]; (.conclusion // "") == "failure" or (.conclusion // "") == "timed_out" or (.conclusion // "") == "cancelled") then "failed"
@@ -347,10 +351,12 @@ fi
 | `success` | Include green checkmark in report, show coverage % |
 | `failed` | **BLOCKING** - Include failed job names and error summary |
 | `self-only` | **BLOCKING** - No independent CI remained after excluding trusted pending publisher checks |
+| `fetch-error` | **BLOCKING** - CI could not be fetched; no verdict is trustworthy |
+| `unknown` | **BLOCKING** - CI payload was unusable |
+| `none` | No checks were explicitly reported; non-blocking for repositories without CI |
 | `running` | Note that CI is still running, review may be preliminary |
 | `pending` | Note that CI hasn't started yet |
 | `canceled` | Note cancellation, may need re-run |
-| `unknown`/empty | Note that no pipeline exists for this MR |
 
 **Include in report header:**
 
@@ -363,8 +369,10 @@ Where STATUS_EMOJI is:
 - ✅ for success
 - ❌ for failed
 - ❌ for self-only
+- ❌ for fetch-error/unknown
+- ⚪ for none
 - ⏳ for running/pending
-- ⚠️ for canceled/unknown
+- ⚠️ for canceled
 
 **If CI is self-only, add to BLOCKING ISSUES:**
 
@@ -372,6 +380,14 @@ Where STATUS_EMOJI is:
 **HIGH** `CI/Pipeline` - Pipeline status is self-only
 > Only explicitly trusted pending samorev publisher checks remained; no independent CI was evaluated.
 > **Fix:** Run at least one independent CI check successfully before reviewing.
+```
+
+**If CI is unknown or fetch-error, add to BLOCKING ISSUES:**
+
+```markdown
+**CRITICAL** `CI/Pipeline` - Pipeline status is {PIPELINE_STATUS}
+> Provider CI could not be fetched or returned an unusable payload.
+> **Fix:** Restore CI access, verify the provider response, and rerun the review.
 ```
 
 **If CI failed, add to BLOCKING ISSUES:**
