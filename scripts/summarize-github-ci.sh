@@ -53,7 +53,8 @@ elif [[ "$configured" -eq 3 && "$trusted_id_count" -gt 0 && "$publisher_app_id" 
           select((($trusted_ids | index($run.id | tostring)) != null and
             $run.name == $name and ($run.app | type) == "object" and
             ($run.app.id | tostring) == $app and
-            $run.status != "completed" and $run.conclusion == null) | not)
+            ((.conclusion // "") as $conclusion |
+              (["failure", "cancelled", "timed_out", "action_required", "stale"] | index($conclusion)) == null)) | not)
         else . end]
     else . end
   ' <<<"$original_ci" 2>/dev/null); then

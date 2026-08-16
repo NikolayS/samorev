@@ -499,7 +499,7 @@ describe("bun samorev CLI", () => {
       }),
     );
     expect(result.exitCode).toBe(0);
-    expect(expectVisibleReport(result.stdout)).toContain("Excluded 1 explicitly trusted pending samorev publisher check run");
+    expect(expectVisibleReport(result.stdout)).toContain("Excluded 1 explicitly trusted non-failing samorev publisher check run");
     expect(expectMetadataDetails(result.stdout)).toContain("excluded_self=1");
   });
 

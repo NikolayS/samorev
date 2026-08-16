@@ -57,6 +57,21 @@ def test_matches_shared_shell_typescript_fixture_table():
         assert summary["excluded_self"] == fixture["excluded_self"], fixture["name"]
 
 
+def test_publisher_exclusion_preserves_independent_success_counts():
+    fixture = next(case for case in PARITY_CASES if case["name"] == "publisher_and_independent_success_pass")
+    self_check = fixture["self_check"]
+    summary, _ = summarize(
+        fixture["payload"],
+        SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS=",".join(self_check["run_ids"]),
+        SAMOREV_IGNORED_GITHUB_CHECK_NAME=self_check["name"],
+        SAMOREV_IGNORED_GITHUB_CHECK_APP_ID=self_check["app_id"],
+    )
+    assert summary["original_count"] == 2
+    assert summary["filtered_count"] == 1
+    assert summary["excluded_self"] == 1
+    assert summary["status"] == "success"
+
+
 def test_malformed_payloads_fail_closed():
     assert summarize({"message": "Not Found"})[0]["status"] == "unknown"
     assert summarize({"check_runs": "oops"})[0]["status"] == "unknown"

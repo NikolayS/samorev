@@ -117,7 +117,7 @@ one per line:
 | `draft` | `true` / `false` |
 | `diff_lines` / `diff_added` / `diff_removed` / `diff_bytes` | diff size |
 | `comments_count` / `commits_count` | counts |
-| `ci_status` | normalized CI status used by the gate; `self-only` means the configured pending GitHub self-check was excluded and no independent CI remained, so the gate fails closed |
+| `ci_status` | normalized CI status used by the gate; `self-only` means configured non-failing GitHub publisher checks were excluded and no independent CI remained, so the gate fails closed |
 | `ci_summary` | per-bucket evaluated-CI detail; `success` includes non-blocking success/skipped/neutral conclusions, while `ci_status` remains authoritative and requires at least one genuine success; may end with `excluded_self=N`, and then `total` excludes that explicitly trusted pending check run |
 | `prompt` | path to the review prompt |
 | `blocking` | echoes the `--blocking` flag |

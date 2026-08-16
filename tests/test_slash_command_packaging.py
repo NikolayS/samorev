@@ -30,6 +30,10 @@ def test_installer_links_slash_command_from_clean_checkout(tmp_path: Path):
     assert result.returncode == 0, result.stderr
     assert command_path.is_symlink()
     assert command_path.resolve() == ROOT / ".claude" / "commands" / "review-mr.md"
+    install_root = home / ".claude" / "samorev"
+    assert install_root.is_symlink()
+    assert (install_root / "lib" / "provider_planning.py").is_file()
+    assert (install_root / "scripts" / "summarize-github-ci.sh").is_file()
     assert "Installed /review-mr" in result.stdout
 
 

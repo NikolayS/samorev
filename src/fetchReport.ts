@@ -639,19 +639,18 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
       counts.other += 1;
       continue;
     }
-    // A samorev verdict publisher may stay pending while this exact review is
-    // running. Counting that self-check makes the reviewer wait on itself and
-    // creates an impossible gate cycle. The fresh review replaces that verdict,
-    // so only independent CI belongs in the pre-review pipeline gate.
+    // A trusted samorev publisher is never independent CI. Exclude its pending
+    // or successful run, but preserve a failure-like conclusion as blocking.
     const app = isRecord(run.app) ? run.app : {};
-    if (trustedIds.has(String(run.id ?? "")) && trustedName && trustedAppId
-      && String(run.name ?? "") === trustedName && String(app.id ?? "") === trustedAppId
-      && run.status !== "completed" && run.conclusion == null) {
+    const conclusion = run.conclusion;
+    const status = run.status;
+    const trustedPublisher = trustedIds.has(String(run.id ?? "")) && trustedName && trustedAppId
+      && String(run.name ?? "") === trustedName && String(app.id ?? "") === trustedAppId;
+    const blockingConclusion = ["failure", "cancelled", "timed_out", "action_required", "stale"].includes(String(conclusion));
+    if (trustedPublisher && !blockingConclusion) {
       excludedSelf += 1;
       continue;
     }
-    const conclusion = run.conclusion;
-    const status = run.status;
     if (["success", "skipped", "neutral"].includes(String(conclusion))) {
       counts.success += 1;
       if (conclusion === "success") genuineSuccess += 1;
@@ -808,7 +807,7 @@ function renderRevLikeReport(args: {
     `| ${formatCiBadge(args.ci.status)} | Not reported |`,
     "",
     ...(args.ci.excludedSelf
-      ? [`> Excluded ${args.ci.excludedSelf} explicitly trusted pending samorev publisher check run${args.ci.excludedSelf === 1 ? "" : "s"} from the independent-CI gate.`, ""]
+      ? [`> Excluded ${args.ci.excludedSelf} explicitly trusted non-failing samorev publisher check run${args.ci.excludedSelf === 1 ? "" : "s"} from the independent-CI gate.`, ""]
       : []),
     "---",
     "",
@@ -905,10 +904,7 @@ export function formatCiBadge(status: string): string {
   if (["pending", "running"].includes(normalized)) {
     return "PENDING";
   }
-  if (!["success", "passed", "pending", "running"].includes(normalized)) {
-    return "FAIL";
-  }
-  return status || "unknown";
+  return "FAIL";
 }
 
 function metadataAuthor(metadata: Record<string, unknown>): string {

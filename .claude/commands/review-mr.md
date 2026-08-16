@@ -282,7 +282,7 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
     echo "Warning: GitHub CI summarizer unavailable at $SAMOREV_ROOT/scripts/summarize-github-ci.sh; failing closed" >&2
     CI_SUMMARY="$CI_SUMMARY_FALLBACK"
   fi
-  if ! jq -e 'type == "object" and (.status | type) == "string" and (.status | length) > 0 and (.pipeline_id | type) == "string" and (.pipeline_url | type) == "string"' <<<"$CI_SUMMARY" >/dev/null; then
+  if ! jq -e 'type == "object" and (.status | type) == "string" and (.status | length) > 0 and (.pipeline_id | type) == "string" and (.pipeline_url | type) == "string" and (.excluded_self | type) == "number" and .excluded_self >= 0' <<<"$CI_SUMMARY" >/dev/null; then
     echo "Warning: invalid GitHub CI summary; failing closed" >&2
     CI_SUMMARY="$CI_SUMMARY_FALLBACK"
   fi
@@ -361,7 +361,7 @@ fi
 ```
 
 For GitHub reviews, when `EXCLUDED_SELF` is greater than zero, add this visible line immediately
-below the header: `> Excluded {EXCLUDED_SELF} explicitly trusted pending
+below the header: `> Excluded {EXCLUDED_SELF} explicitly trusted non-failing
 samorev publisher check run(s) from the independent-CI gate.`
 
 Where STATUS_EMOJI is:

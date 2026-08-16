@@ -104,7 +104,8 @@ name and app ID. The comma-separated database IDs, resolved fresh from a
 base-controlled workflow run, are the security boundary. GitHub Actions app
 `15368` is shared by trusted and PR-controlled workflows and job names are
 author-controllable, so name/app checks provide consistency—not identity.
-Completed runs are never excluded.
+Matching publisher failures remain blocking; matching pending or successful
+publisher runs are excluded because they are not independent CI.
 Exclusions are reported as `excluded_self=N`; if exclusion leaves no
 independent CI, status is `self-only` and the gate fails closed. GitLab uses its
 aggregate pipeline status and does not support this exclusion.

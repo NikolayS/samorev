@@ -55,6 +55,20 @@
     "excluded_self": 1
   },
   {
+    "name": "publisher_and_independent_success_pass",
+    "payload": {"check_runs": [{"id": 303, "name": "base-controlled samorev publisher", "app": {"id": 15368}, "status": "in_progress", "conclusion": null}, {"id": 505, "name": "typecheck", "status": "completed", "conclusion": "success"}]},
+    "self_check": {"run_ids": ["303"], "name": "base-controlled samorev publisher", "app_id": "15368"},
+    "status": "success",
+    "excluded_self": 1
+  },
+  {
+    "name": "completed_publisher_success_is_self_only",
+    "payload": {"check_runs": [{"id": 303, "name": "base-controlled samorev publisher", "app": {"id": 15368}, "status": "completed", "conclusion": "success"}]},
+    "self_check": {"run_ids": ["303"], "name": "base-controlled samorev publisher", "app_id": "15368"},
+    "status": "self-only",
+    "excluded_self": 1
+  },
+  {
     "name": "completed_publisher_failure_is_not_excluded",
     "payload": {"check_runs": [{"id": 303, "name": "base-controlled samorev publisher", "app": {"id": 15368}, "status": "completed", "conclusion": "failure"}]},
     "self_check": {"run_ids": ["303"], "name": "base-controlled samorev publisher", "app_id": "15368"},

@@ -253,9 +253,10 @@ live_posting=not-run
 
 For GitHub verdict publishers that wait on the review itself, set
 `SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS` to the comma-separated database IDs of
-the current pending publisher runs, plus `SAMOREV_IGNORED_GITHUB_CHECK_NAME`
-and `SAMOREV_IGNORED_GITHUB_CHECK_APP_ID` to their expected identity. Completed
-runs are never excluded. The metadata then appends `excluded_self=N`; `total`
+the current publisher runs, plus `SAMOREV_IGNORED_GITHUB_CHECK_NAME`
+and `SAMOREV_IGNORED_GITHUB_CHECK_APP_ID` to their expected identity. Matching
+failures remain blocking; matching pending or successful runs are excluded. The
+metadata then appends `excluded_self=N`; `total`
 counts evaluated independent checks. A self-only set reports
 `ci_status=self-only` and fails closed. This
 exclusion does not apply to GitLab's aggregate pipeline status.
