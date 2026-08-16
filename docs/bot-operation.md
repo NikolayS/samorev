@@ -265,6 +265,12 @@ A stale, malformed, or mismatched identity excludes nothing and leaves the
 publisher pending, so configuration errors fail by self-waiting rather than by
 silently dropping unrelated CI.
 
+The freshly resolved database IDs are the security boundary. App `15368`
+identifies GitHub Actions generally—including PR-controlled workflows—and job
+names are author-controllable; app/name comparisons are consistency checks, not
+independent identity factors. Never take run IDs from PR input or static
+configuration.
+
 Verdict logic for a bot:
 
 - **PASS** ⇔ the body contains `**Result: PASSED**` (and no `### BLOCKING

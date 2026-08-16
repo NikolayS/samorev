@@ -268,6 +268,7 @@ This ensures we:
 # Get CI/pipeline status using the provider-specific CI operation.
 if [ "$REVIEW_PROVIDER" = "github" ]; then
   CI_JSON=$(eval "$CI_COMMAND" 2>/dev/null || echo '{"check_runs":[]}')
+  ORIGINAL_RUN_COUNT=$(echo "$CI_JSON" | jq '(.check_runs // []) | length')
   if [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS:-}" ] &&
      [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_NAME:-}" ] &&
      [ -n "${SAMOREV_IGNORED_GITHUB_CHECK_APP_ID:-}" ]; then
@@ -280,13 +281,18 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
           $run.name == $name and ($run.app.id | tostring) == $app and
           $run.status != "completed" and $run.conclusion == null) | not)]')
   fi
-  PIPELINE_STATUS=$(echo "$CI_JSON" | jq -r '
-    (.check_runs // []) as $runs |
-    if ($runs | length) == 0 then "unknown"
-    elif any($runs[]; (.conclusion // "") == "failure" or (.conclusion // "") == "timed_out" or (.conclusion // "") == "cancelled") then "failed"
-    elif all($runs[]; (.conclusion // "") == "success" or (.conclusion // "") == "skipped" or (.conclusion // "") == "neutral") then "success"
-    elif any($runs[]; (.status // "") == "queued") then "pending"
-    else "running" end')
+  FILTERED_RUN_COUNT=$(echo "$CI_JSON" | jq '(.check_runs // []) | length')
+  if [ "$ORIGINAL_RUN_COUNT" -gt 0 ] && [ "$FILTERED_RUN_COUNT" -eq 0 ]; then
+    PIPELINE_STATUS="self-only"
+  else
+    PIPELINE_STATUS=$(echo "$CI_JSON" | jq -r '
+      (.check_runs // []) as $runs |
+      if ($runs | length) == 0 then "unknown"
+      elif any($runs[]; (.conclusion // "") == "failure" or (.conclusion // "") == "timed_out" or (.conclusion // "") == "cancelled") then "failed"
+      elif all($runs[]; (.conclusion // "") == "success" or (.conclusion // "") == "skipped" or (.conclusion // "") == "neutral") then "success"
+      elif any($runs[]; (.status // "") == "queued") then "pending"
+      else "running" end')
+  fi
   PIPELINE_ID=$(echo "$CI_JSON" | jq -r '[(.check_runs // [])[] | .html_url // "" | capture("/actions/runs/(?<id>[0-9]+)")? | .id][0] // empty')
   PIPELINE_URL=$(echo "$CI_JSON" | jq -r '[(.check_runs // [])[] | .html_url // empty][0] // empty')
   COVERAGE="N/A"
@@ -333,6 +339,7 @@ fi
 |--------|--------|
 | `success` | Include green checkmark in report, show coverage % |
 | `failed` | **BLOCKING** - Include failed job names and error summary |
+| `self-only` | **BLOCKING** - No independent CI remained after excluding trusted pending publisher checks |
 | `running` | Note that CI is still running, review may be preliminary |
 | `pending` | Note that CI hasn't started yet |
 | `canceled` | Note cancellation, may need re-run |

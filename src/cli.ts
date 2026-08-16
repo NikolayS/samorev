@@ -65,7 +65,7 @@ async function review(args: ReviewArgs): Promise<number> {
   }
 
   if (args.fetch) {
-    const githubSelfCheck = githubSelfCheckFromEnv();
+    const githubSelfCheck = parseGitHubSelfCheckEnv(process.env);
     try {
       if (args.noComment) {
         const { report, outcome } = await fetchReviewSummary(reference, plan, relative(repoRoot, promptPath), {
@@ -84,13 +84,19 @@ async function review(args: ReviewArgs): Promise<number> {
         await assertProviderAuth(reference);
       } catch (error) {
         if (error instanceof PostingError) {
-          const { report: blockedReport } = await fetchReviewSummary(reference, plan, relative(repoRoot, promptPath), {
-            blocking: args.blocking,
-            noComment: false,
-            postedBy: tool,
-            livePosting: "blocked",
-            githubSelfCheck,
-          });
+          let blockedReport: string;
+          try {
+            ({ report: blockedReport } = await fetchReviewSummary(reference, plan, relative(repoRoot, promptPath), {
+              blocking: args.blocking,
+              noComment: false,
+              postedBy: tool,
+              livePosting: "blocked",
+              githubSelfCheck,
+            }));
+          } catch (reportError) {
+            console.error(error.message);
+            throw reportError;
+          }
           console.log(blockedReport);
           console.error(error.message);
           return 1;
@@ -130,12 +136,22 @@ async function review(args: ReviewArgs): Promise<number> {
   return 2;
 }
 
-function githubSelfCheckFromEnv(): GitHubSelfCheck | undefined {
-  const runIds = (process.env.SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS ?? "")
-    .split(",").map((value) => value.trim()).filter((value) => /^\d+$/.test(value));
-  const name = (process.env.SAMOREV_IGNORED_GITHUB_CHECK_NAME ?? "").trim();
-  const appId = (process.env.SAMOREV_IGNORED_GITHUB_CHECK_APP_ID ?? "").trim();
-  return runIds.length > 0 && name && /^\d+$/.test(appId) ? { runIds, name, appId } : undefined;
+export function parseGitHubSelfCheckEnv(
+  env: Record<string, string | undefined>,
+  warn: (message: string) => void = console.error,
+): GitHubSelfCheck | undefined {
+  const rawIds = (env.SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+  const runIds = rawIds.filter((value) => /^\d+$/.test(value));
+  const name = (env.SAMOREV_IGNORED_GITHUB_CHECK_NAME ?? "").trim();
+  const appId = (env.SAMOREV_IGNORED_GITHUB_CHECK_APP_ID ?? "").trim();
+  const configured = rawIds.length > 0 || Boolean(name) || Boolean(appId);
+  if (!configured) return undefined;
+  if (runIds.length !== rawIds.length) warn("Ignoring non-numeric GitHub self-check run IDs");
+  if (runIds.length === 0 || !name || !/^\d+$/.test(appId)) {
+    warn("Invalid GitHub self-check configuration; run IDs, exact name, and numeric app ID are all required");
+    return undefined;
+  }
+  return { runIds, name, appId };
 }
 
 function parseReviewArgs(argv: string[]): ReviewArgs {

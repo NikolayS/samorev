@@ -73,9 +73,11 @@ Modes:
 
 Exit behavior:
 
-- `0`: successful smoke, handoff, fetch report, or provider-native summary post.
-- `1`: provider fetch failed or required prompt missing.
-- `1`: posting requested but provider auth/posting failed; output includes `live_posting=blocked` for auth blockers.
+- `0`: successful smoke/handoff, or a fetch/post whose verdict is PASS (also a
+  non-blocking FAIL when `--blocking` was not requested).
+- `1`: a rendered FAIL verdict with `--blocking`, provider fetch/prompt failure,
+  or provider auth/posting failure. Parse the report shape to distinguish them;
+  auth blockers include `live_posting=blocked` when a report could be rendered.
 - `2`: invalid arguments or invalid reference.
 
 ## 5. Provider Behavior
@@ -95,8 +97,11 @@ Fetches:
 
 CI summary buckets: `success`, `failure`, `pending`, `other`. A trusted GitHub
 runner may set `SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS` plus the exact publisher
-name and app ID. The comma-separated database IDs are the primary identity; the
-name/app match is defense in depth. Completed runs are never excluded.
+name and app ID. The comma-separated database IDs, resolved fresh from a
+base-controlled workflow run, are the security boundary. GitHub Actions app
+`15368` is shared by trusted and PR-controlled workflows and job names are
+author-controllable, so name/app checks provide consistency—not identity.
+Completed runs are never excluded.
 Exclusions are reported as `excluded_self=N`; if exclusion leaves no
 independent CI, status is `self-only` and the gate fails closed. GitLab uses its
 aggregate pipeline status and does not support this exclusion.

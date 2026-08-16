@@ -426,6 +426,22 @@ describe("bun samorev CLI", () => {
         "--no-comment",
         "--fetch",
         "--blocking",
+      ]),
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("**Result: PASSED**");
+    expect(expectMetadataDetails(result.stdout)).toContain("ci_summary=total=2 success=2 failure=0 pending=0 other=0");
+  });
+
+  it("passes independent CI while visibly excluding the trusted pending publisher", async () => {
+    await writeGitHubPassFake(true);
+    const result = await output(
+      await runSamorev([
+        "review",
+        "https://github.com/example-org/example-repo/pull/17",
+        "--no-comment",
+        "--fetch",
+        "--blocking",
       ], {
         SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS: "303",
         SAMOREV_IGNORED_GITHUB_CHECK_NAME: "base-controlled samorev publisher",
@@ -433,12 +449,12 @@ describe("bun samorev CLI", () => {
       }),
     );
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("**Result: PASSED**");
-    expect(expectMetadataDetails(result.stdout)).toContain("ci_summary=total=2 success=2 failure=0 pending=0 other=0 excluded_self=1");
+    expect(expectVisibleReport(result.stdout)).toContain("Excluded 1 explicitly trusted pending samorev publisher check run");
+    expect(expectMetadataDetails(result.stdout)).toContain("excluded_self=1");
   });
 
   it("keeps a pending publisher blocking unless its exact check-run id is trusted", async () => {
-    await writeGitHubPassFake();
+    await writeGitHubPassFake(true);
     const result = await output(
       await runSamorev([
         "review",
@@ -547,7 +563,14 @@ if (args.slice(0, 3).join(" ") === "pr view 17") {
   );
 }
 
-async function writeGitHubPassFake() {
+async function writeGitHubPassFake(includePublisher = false) {
+  const checkRuns = [
+    { id: 101, name: "unit", conclusion: "success" },
+    { id: 202, name: "lint", conclusion: "success" },
+    ...(includePublisher
+      ? [{ id: 303, name: "base-controlled samorev publisher", app: { id: 15368 }, status: "in_progress", conclusion: null }]
+      : []),
+  ];
   await writeFile(
     join(fakeBin, "gh"),
     `#!/usr/bin/env bun
@@ -561,7 +584,7 @@ if (args.slice(0, 3).join(" ") === "pr view 17") {
 } else if (args.slice(0, 2).join(" ") === "api repos/example-org/example-repo/pulls/17/commits") {
   console.log(JSON.stringify([{ sha: "abc" }, { sha: "def" }, { sha: "ghi" }]));
 } else if (args.slice(0, 2).join(" ") === "api repos/example-org/example-repo/commits/pull/17/head/check-runs") {
-  console.log(JSON.stringify({ total_count: 3, check_runs: [{ id: 101, name: "unit", conclusion: "success" }, { id: 202, name: "lint", conclusion: "success" }, { id: 303, name: "base-controlled samorev publisher", app: { id: 15368 }, status: "in_progress", conclusion: null }] }));
+  console.log(JSON.stringify(${JSON.stringify({ total_count: checkRuns.length, check_runs: checkRuns })}));
 } else if (args.slice(0, 2).join(" ") === "auth status") {
   console.error("Logged in to github.com");
 } else {

@@ -613,11 +613,11 @@ function countJsonItems(value: unknown): number {
   return 0;
 }
 
-function summarizeCi(provider: Provider, ci: unknown, githubSelfCheck?: GitHubSelfCheck): { status: string; summary: string } {
+function summarizeCi(provider: Provider, ci: unknown, githubSelfCheck?: GitHubSelfCheck): { status: string; summary: string; excludedSelf?: number } {
   return provider === "github" ? summarizeGitHubCi(ci, githubSelfCheck) : summarizeGitLabCi(ci);
 }
 
-export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck): { status: string; summary: string } {
+export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck): { status: string; summary: string; excludedSelf: number } {
   const checkRuns = isRecord(ci) && Array.isArray(ci.check_runs) ? ci.check_runs : [];
   const counts = { success: 0, failure: 0, pending: 0, other: 0 };
   let excludedSelf = 0;
@@ -669,6 +669,7 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
   return {
     status,
     summary: `total=${total} success=${counts.success} failure=${counts.failure} pending=${counts.pending} other=${counts.other}${excludedSelf ? ` excluded_self=${excludedSelf}` : ""}`,
+    excludedSelf,
   };
 }
 
@@ -744,7 +745,7 @@ function renderRevLikeReport(args: {
   state: string;
   draft: boolean;
   diff: { lines: number; added: number; removed: number; bytes: number };
-  ci: { status: string; summary: string };
+  ci: { status: string; summary: string; excludedSelf?: number };
   findings: GateFinding[];
   llmFindings: LlmFindings;
   /** Whether the LLM runner was invoked successfully (vs. fail-closed path). */
@@ -790,6 +791,9 @@ function renderRevLikeReport(args: {
     "|----------|----------|",
     `| ${formatCiBadge(args.ci.status)} | Not reported |`,
     "",
+    ...(args.ci.excludedSelf
+      ? [`> Excluded ${args.ci.excludedSelf} explicitly trusted pending samorev publisher check run${args.ci.excludedSelf === 1 ? "" : "s"} from the independent-CI gate.`, ""]
+      : []),
     "---",
     "",
   ];
