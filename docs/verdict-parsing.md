@@ -89,13 +89,14 @@ Gate findings (from `reviewGateFindings()`):
 | Trigger | Area | Severity |
 |---------|------|----------|
 | `draft == true` | Metadata | HIGH |
-| CI status `pending` or `none` | CI/Pipeline | HIGH |
+| CI status `pending`, `running`, `created`, `preparing`, `scheduled`, `waiting_for_resource`, or `none` | CI/Pipeline | HIGH |
 | CI status `self-only` | CI/Pipeline | HIGH |
-| CI status other than `success`, `pending`, `none`, or `self-only` | CI/Pipeline | CRITICAL |
+| Any other CI status | CI/Pipeline | CRITICAL |
 
 For GitHub check conclusions, `success`, `skipped`, and `neutral` are
-non-blocking; `failure`, `cancelled`, `timed_out`, `action_required`, and
-`stale` are failures. At least one check must conclude `success`; an all-skipped
+non-blocking; `failure`, `cancelled`, `timed_out`, `action_required`, `stale`,
+and `startup_failure` are failures. Unknown future conclusions also fail closed.
+At least one check must conclude `success`; an all-skipped
 or all-neutral set normalizes to `none`. The normalized failure status is
 `failure` (not `failed`). GitLab MRs with no pipeline also normalize to `none`.
 

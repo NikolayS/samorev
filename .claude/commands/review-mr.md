@@ -117,6 +117,7 @@ fi
 # "${RUN_ID}", so bind those variables before evaluating the command string.
 eval "$PLAN_OUTPUT"
 SAMOREV_ROOT=$(cd "$(dirname "$PLAN_SCRIPT")/.." && pwd)
+export SAMOREV_ROOT
 ```
 
 ### Step 2: Fetch review data
@@ -291,19 +292,19 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
   COVERAGE="N/A"
 else
   CI_ERROR_FILE=$(mktemp)
-  if ! MR_JSON=$(eval "$CI_COMMAND" 2>"$CI_ERROR_FILE"); then
+  if ! CI_MR_JSON=$(eval "$CI_COMMAND" 2>"$CI_ERROR_FILE"); then
     CI_ERROR=$(tr '\n' ' ' <"$CI_ERROR_FILE")
     echo "Warning: GitLab CI fetch failed: ${CI_ERROR:-unknown provider error}; failing closed" >&2
-    MR_JSON='{}'
+    CI_MR_JSON='{}'
     PIPELINE_STATUS="fetch-error"
-  elif ! PIPELINE_STATUS=$(echo "$MR_JSON" | jq -er '.head_pipeline.status // .pipeline.status // "none"') || [ -z "$PIPELINE_STATUS" ]; then
+  elif ! PIPELINE_STATUS=$(echo "$CI_MR_JSON" | jq -er '.head_pipeline.status // .pipeline.status // "none"') || [ -z "$PIPELINE_STATUS" ]; then
     echo "Warning: invalid GitLab CI response; failing closed" >&2
     PIPELINE_STATUS="fetch-error"
   fi
   rm -f "$CI_ERROR_FILE"
-  PIPELINE_ID=$(echo "$MR_JSON" | jq -r '.head_pipeline.id // .pipeline.id // empty' 2>/dev/null || true)
-  PIPELINE_URL=$(echo "$MR_JSON" | jq -r '.head_pipeline.web_url // .pipeline.web_url // empty' 2>/dev/null || true)
-  COVERAGE=$(echo "$MR_JSON" | jq -r '.head_pipeline.coverage // .pipeline.coverage // "N/A"' 2>/dev/null || echo "N/A")
+  PIPELINE_ID=$(echo "$CI_MR_JSON" | jq -r '.head_pipeline.id // .pipeline.id // empty' 2>/dev/null || true)
+  PIPELINE_URL=$(echo "$CI_MR_JSON" | jq -r '.head_pipeline.web_url // .pipeline.web_url // empty' 2>/dev/null || true)
+  COVERAGE=$(echo "$CI_MR_JSON" | jq -r '.head_pipeline.coverage // .pipeline.coverage // "N/A"' 2>/dev/null || echo "N/A")
 fi
 ```
 
@@ -346,7 +347,7 @@ fi
 | `fetch-error` | **BLOCKING** - CI could not be fetched; no verdict is trustworthy |
 | `unknown` | **BLOCKING** - CI payload was unusable |
 | `none` | **BLOCKING** - No independent CI was reported yet |
-| `running` | **BLOCKING** - GitLab CI is still running |
+| `running`, `created`, `preparing`, `scheduled`, `waiting_for_resource` | **BLOCKING (HIGH)** - GitLab CI is still in progress |
 | `pending` | **BLOCKING** - CI is still pending |
 | `canceled` | **BLOCKING** - CI was canceled |
 | any other status | **BLOCKING** - Unrecognized/non-success CI status; treat as failure |
@@ -395,12 +396,12 @@ Where STATUS_EMOJI is:
 > **Fix:** Wait for CI to finish successfully, then rerun the review.
 ```
 
-**If GitLab CI is running or canceled, add to BLOCKING ISSUES:**
+**If GitLab CI is running, created, preparing, scheduled, or waiting_for_resource, add to BLOCKING ISSUES:**
 
 ```markdown
-**CRITICAL** `CI/Pipeline` - Pipeline status is {PIPELINE_STATUS}
-> GitLab CI has not produced a successful completed pipeline.
-> **Fix:** Wait for a running pipeline or rerun a canceled pipeline, then review again.
+**HIGH** `CI/Pipeline` - Pipeline status is {PIPELINE_STATUS}
+> GitLab CI is still in progress.
+> **Fix:** Wait for CI to finish successfully, then rerun the review.
 ```
 
 **For any other non-success CI status, add to BLOCKING ISSUES:**
@@ -458,7 +459,7 @@ import os
 import sys
 
 repo_root = os.environ.get("REPO_ROOT", ".")
-sys.path.insert(0, os.path.join(repo_root, "lib"))
+sys.path.insert(0, os.path.join(os.environ["SAMOREV_ROOT"], "lib"))
 
 from compliance import render_compliance_report
 
@@ -783,7 +784,7 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
     "</recent_discussion>"
   ' || true)
 else
-  PRIOR_CONTEXT=$(python3 "$REPO_ROOT/lib/review_memory.py" \
+  PRIOR_CONTEXT=$(python3 "$SAMOREV_ROOT/lib/review_memory.py" \
     "$PROJECT_URL_ENCODED" "$MR_NUMBER" 2>/dev/null || true)
 fi
 ```
@@ -822,7 +823,7 @@ if [ "$REVIEW_PROVIDER" = "github" ]; then
     "</recent_discussion>"
   ' || true)
 else
-  PRIOR_CONTEXT=$(python3 "$REPO_ROOT/lib/review_memory.py" \
+  PRIOR_CONTEXT=$(python3 "$SAMOREV_ROOT/lib/review_memory.py" \
     "$PROJECT_URL_ENCODED" "$MR_NUMBER" 2>/dev/null || true)
 fi
 RULES_CONTENT=""

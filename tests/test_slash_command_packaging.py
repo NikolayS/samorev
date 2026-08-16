@@ -78,13 +78,14 @@ def test_installer_canonicalizes_symlinked_checkout_parent(tmp_path: Path):
     first = subprocess.run(
         ["bash", "scripts/install-claude-command.sh"], cwd=logical_parent / "samorev", env=env, capture_output=True, text=True
     )
+    (home / ".claude" / "commands" / "review-mr.md").unlink()
     second = subprocess.run(
         ["bash", "scripts/install-claude-command.sh"], cwd=logical_parent / "samorev", env=env, capture_output=True, text=True
     )
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0, second.stderr
-    assert "/review-mr already installed" in second.stdout
+    assert "Installed /review-mr" in second.stdout
 
 
 def test_installed_command_finds_helper_from_arbitrary_repo(tmp_path: Path):
@@ -174,6 +175,24 @@ def test_installer_rejects_dangling_install_root_with_actionable_error(tmp_path:
     assert not (home / ".claude" / "commands" / "review-mr.md").exists()
 
 
+def test_incomplete_checkout_leaves_no_install_root(tmp_path: Path):
+    home = tmp_path / "home"
+    checkout = tmp_path / "incomplete"
+    (checkout / "scripts").mkdir(parents=True)
+    (checkout / ".claude" / "commands").mkdir(parents=True)
+    shutil.copy2(ROOT / "scripts" / "install-claude-command.sh", checkout / "scripts" / "install-claude-command.sh")
+    shutil.copy2(ROOT / ".claude" / "commands" / "review-mr.md", checkout / ".claude" / "commands" / "review-mr.md")
+
+    result = subprocess.run(
+        ["bash", "scripts/install-claude-command.sh"], cwd=checkout,
+        env={**os.environ, "HOME": str(home)}, capture_output=True, text=True,
+    )
+
+    assert result.returncode != 0
+    assert "helper set is incomplete" in result.stderr
+    assert not (home / ".claude" / "samorev").exists()
+
+
 def test_slash_command_delegates_to_provider_planning_core():
     command = read(".claude/commands/review-mr.md")
 
@@ -181,6 +200,9 @@ def test_slash_command_delegates_to_provider_planning_core():
     assert "$HOME/.claude/samorev/lib/provider_planning.py" in command
     assert '"$PWD/lib/provider_planning.py"' not in command
     assert '"$PWD/rev/lib/provider_planning.py"' not in command
+    assert 'python3 "$REPO_ROOT/lib/' not in command
+    assert 'python3 "$SAMOREV_ROOT/lib/review_memory.py"' in command
+    assert 'os.path.join(os.environ["SAMOREV_ROOT"], "lib")' in command
     assert 'if [ "$REVIEW_PROVIDER" = "github" ]; then' in command
     assert "$METADATA_COMMAND" in command
     assert "$DIFF_COMMAND" in command

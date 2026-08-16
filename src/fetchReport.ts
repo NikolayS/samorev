@@ -646,15 +646,15 @@ export function summarizeGitHubCi(ci: unknown, githubSelfCheck?: GitHubSelfCheck
     const status = run.status;
     const trustedPublisher = trustedIds.has(String(run.id ?? "")) && trustedName && trustedAppId
       && String(run.name ?? "") === trustedName && String(app.id ?? "") === trustedAppId;
-    const blockingConclusion = ["failure", "cancelled", "timed_out", "action_required", "stale"].includes(String(conclusion));
-    if (trustedPublisher && !blockingConclusion) {
+    const excludablePublisher = conclusion == null || ["success", "skipped", "neutral"].includes(String(conclusion));
+    if (trustedPublisher && excludablePublisher) {
       excludedSelf += 1;
       continue;
     }
     if (["success", "skipped", "neutral"].includes(String(conclusion))) {
       counts.success += 1;
       if (conclusion === "success") genuineSuccess += 1;
-    } else if (["failure", "cancelled", "timed_out", "action_required", "stale"].includes(String(conclusion))) {
+    } else if (["failure", "cancelled", "timed_out", "action_required", "stale", "startup_failure"].includes(String(conclusion))) {
       counts.failure += 1;
     } else if (status !== "completed" || conclusion == null) {
       counts.pending += 1;
@@ -718,6 +718,7 @@ type GateFinding = {
 
 export function reviewGateFindings(ciStatus: string, draft: boolean): GateFinding[] {
   const findings: GateFinding[] = [];
+  const transient = ["pending", "running", "created", "preparing", "scheduled", "waiting_for_resource"].includes(ciStatus);
   if (draft) {
     findings.push({
       area: "Metadata",
@@ -740,11 +741,11 @@ export function reviewGateFindings(ciStatus: string, draft: boolean): GateFindin
   } else if (ciStatus !== "success") {
     findings.push({
       area: "CI/Pipeline",
-      severity: ["pending", "none"].includes(ciStatus) ? "HIGH" : "CRITICAL",
+      severity: transient || ciStatus === "none" ? "HIGH" : "CRITICAL",
       subject: "CI/Pipeline",
       title: `Pipeline status is ${ciStatus}`,
       detail: `Provider CI reported status \`${ciStatus}\`.`,
-      fix: ciStatus === "pending"
+      fix: transient
         ? "Wait for CI to finish and rerun review."
         : ciStatus === "none"
         ? "Run at least one independent CI check successfully before reviewing."
@@ -901,7 +902,7 @@ export function formatCiBadge(status: string): string {
   if (["success", "passed"].includes(normalized)) {
     return "PASS";
   }
-  if (["pending", "running"].includes(normalized)) {
+  if (["pending", "running", "created", "preparing", "scheduled", "waiting_for_resource"].includes(normalized)) {
     return "PENDING";
   }
   return "FAIL";

@@ -12,6 +12,11 @@ if [[ ! -f "$source_command" ]]; then
   exit 1
 fi
 
+if [[ ! -f "$repo_root/lib/provider_planning.py" || ! -f "$repo_root/scripts/summarize-github-ci.sh" ]]; then
+  echo "Error: samorev helper set is incomplete at $repo_root" >&2
+  exit 1
+fi
+
 mkdir -p "$target_dir"
 
 if [[ -L "$target_command" ]]; then
@@ -41,11 +46,6 @@ if [[ -e "$install_root" || -L "$install_root" ]]; then
 else
   mkdir -p "$(dirname "$install_root")"
   ln -s "$repo_root" "$install_root"
-fi
-
-if [[ ! -f "$install_root/lib/provider_planning.py" || ! -f "$install_root/scripts/summarize-github-ci.sh" ]]; then
-  echo "Error: installed samorev helper set is incomplete at $install_root" >&2
-  exit 1
 fi
 
 ln -s "$source_command" "$target_command"

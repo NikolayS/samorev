@@ -326,6 +326,23 @@ describe("bun samorev CLI", () => {
     await expect(readFile(postLog, "utf8")).rejects.toThrow();
   });
 
+  it("fails closed when a GitLab MR has no pipeline", async () => {
+    await writeGitLabFake(undefined, false);
+    const result = await output(
+      await runSamorev([
+        "review",
+        "https://gitlab.com/example-group/example-project/-/merge_requests/42",
+        "--no-comment",
+        "--blocking",
+        "--fetch",
+      ]),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("**HIGH** `CI/Pipeline` - Pipeline status is none");
+    expect(expectMetadataDetails(result.stdout)).toContain("ci_status=none");
+  });
+
   it("renders GitLab public API fallback summary fields", async () => {
     const reference = parseReviewReference("https://gitlab.com/example-group/example-project/-/merge_requests/42");
     const plan = planFetch(reference);
@@ -654,13 +671,16 @@ if (args.slice(0, 3).join(" ") === "pr view 17") {
   );
 }
 
-async function writeGitLabFake(postLog?: string) {
+async function writeGitLabFake(postLog?: string, includePipeline = true) {
+  const metadata = includePipeline
+    ? { title: "GitLab demo", state: "opened", draft: false, head_pipeline: { status: "failed" } }
+    : { title: "GitLab demo", state: "opened", draft: false };
   await writeFile(
     join(fakeBin, "glab"),
     `#!/usr/bin/env bun
 const args = Bun.argv.slice(2);
 if (args.slice(0, 2).join(" ") === "api projects/example-group%2Fexample-project/merge_requests/42") {
-  console.log(JSON.stringify({ title: "GitLab demo", state: "opened", draft: false, head_pipeline: { status: "failed" } }));
+  console.log(${JSON.stringify(JSON.stringify(metadata))});
 } else if (args.slice(0, 3).join(" ") === "mr diff 42") {
   Bun.write(Bun.stdout, "diff --git a/app.ts b/app.ts\\n+console.log('demo')\\n-old = true\\n");
 } else if (args.slice(0, 2).join(" ") === "api projects/example-group%2Fexample-project/merge_requests/42/notes?per_page=10&sort=desc") {

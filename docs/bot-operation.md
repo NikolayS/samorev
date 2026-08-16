@@ -128,7 +128,8 @@ Only relevant if the bot drives `/review-mr` inside Claude Code:
 |---------|---------|---------|
 | `GITLAB_TOKEN` | `lib/review_memory.py` | Fetch prior-review context for GitLab MRs (sent as `PRIVATE-TOKEN`). |
 | `GITLAB_HOST` | `lib/review_memory.py` | Override GitLab host (default `gitlab.com`). |
-| `REPO_ROOT` / `REV_ROOT` | `.claude/commands/review-mr.md` | Path hints to locate `lib/` helpers. |
+| `REPO_ROOT` | `.claude/commands/review-mr.md` | Repository-under-review root for project data and optional rules; never an executable-helper source. |
+| `REV_ROOT` | `.claude/commands/review-mr.md` | Explicit trusted samorev checkout containing executable helpers. |
 | `SAMOREV_INSTALL_ROOT` | `scripts/install-claude-command.sh` | Override the trusted checkout link (default `$HOME/.claude/samorev`). |
 | `SAMOREV_IGNORED_GITHUB_CHECK_RUN_IDS` | `scripts/summarize-github-ci.sh` | Trusted current publisher check IDs; shared with Surface A. |
 | `SAMOREV_IGNORED_GITHUB_CHECK_NAME` | `scripts/summarize-github-ci.sh` | Exact trusted publisher name; shared with Surface A. |

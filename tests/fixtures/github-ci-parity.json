@@ -36,6 +36,12 @@
     "excluded_self": 0
   },
   {
+    "name": "startup_failure_is_failure",
+    "payload": {"check_runs": [{"status": "completed", "conclusion": "startup_failure"}]},
+    "status": "failure",
+    "excluded_self": 0
+  },
+  {
     "name": "malformed_run_is_unknown",
     "payload": {"check_runs": [null]},
     "status": "unknown",
